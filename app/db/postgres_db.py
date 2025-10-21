@@ -58,7 +58,7 @@ class PostgresDatabase(Database):
             result = cursor.fetchone()
             if result:
                 result = dict(result)
-                result['tags'] = json.loads(result['tags']) if result['tags'] else []
+                result['tags'] = result['tags'] or []
                 result['created_at'] = result['created_at'].isoformat() if result['created_at'] else None
                 result['updated_at'] = result['updated_at'].isoformat() if result['updated_at'] else None
                 result['due_date'] = result['due_date'].isoformat() if result['due_date'] else None
@@ -73,7 +73,7 @@ class PostgresDatabase(Database):
             tickets = []
             for row in results:
                 row = dict(row)
-                row['tags'] =row['tags'] if row['tags'] else []
+                row['tags'] = row['tags'] or []
                 row['created_at'] = row['created_at'].isoformat() if row['created_at'] else None
                 row['updated_at'] = row['updated_at'].isoformat() if row['updated_at'] else None
                 row['due_date'] = row['due_date'].isoformat() if row['due_date'] else None
