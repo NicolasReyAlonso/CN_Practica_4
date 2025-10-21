@@ -1,3 +1,2 @@
-/.env
-/compose.sh
-/deploy.sh
+*.env
+*.sh
