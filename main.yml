@@ -120,6 +120,13 @@ Resources:
           PortMappings:
             - ContainerPort: 8080
               Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/tickets
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: tickets
+              awslogs-create-group: "true"
           Environment:
             - Name: DB_TYPE
               Value: !Ref DBType
