@@ -138,6 +138,8 @@ Resources:
     Type: AWS::ECS::Service
     Properties:
       Cluster: !Ref ECSCluster
+      DependsOn:
+        - Listener
       ServiceName: tickets-service
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: 1
