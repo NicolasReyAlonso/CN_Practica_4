@@ -8,7 +8,7 @@ import os
 class DynamoDBDatabase(Database):
     
     def __init__(self):
-        self.dynamodb = boto3.resource('dynamodb', region_name='eu-east-1')
+        self.dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
         self.table_name = os.getenv('DB_DYNAMONAME')
         self.table = self.dynamodb.Table(self.table_name)
         self.initialize()
