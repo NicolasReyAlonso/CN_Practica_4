@@ -7,6 +7,7 @@ Esta es la solución de partida para la práctica de aula 4 de la asignatura de 
 ![Diagrama de la práctica](Diagram.png)
 
 ### Componentes principales
+
 - **API Gateway (REST)**: expone los recursos `items` e `item` y enruta al backend vía VPC Link. Protegido con API Key.
 - **VPC Link + NLB**: el VPC Link conecta API Gateway con un Network Load Balancer interno que apunta al servicio de ECS.
 - **ECS Fargate**: ejecuta el contenedor de la app Flask definido en `Dockerfile` y `main.yml`.
@@ -16,6 +17,7 @@ Esta es la solución de partida para la práctica de aula 4 de la asignatura de 
 - **Amazon ECR**: repositorio para la imagen del contenedor.
 
 ### Estructura del proyecto
+
 - `app/main.py`: aplicación Flask con endpoints y CORS.
 - `app/models/ticket.py`: modelo `Ticket` con validación Pydantic.
 - `app/db/db.py`: interfaz abstracta de base de datos.
@@ -32,6 +34,7 @@ Esta es la solución de partida para la práctica de aula 4 de la asignatura de 
 - `frontend.html`: HTML básico para probar la API vía API Gateway.
 
 ### API
+
 - **POST** `/items`: crea un ticket.
 - **GET** `/items`: lista de tickets.
 - **GET** `/items/{ticket_id}`: obtiene un ticket.
@@ -42,6 +45,7 @@ Esta es la solución de partida para la práctica de aula 4 de la asignatura de 
 Las respuestas de error gestionan validación (`pydantic`), integridad/operación de PostgreSQL y errores de DynamoDB.
 
 ### Variables de entorno
+
 - **DB_TYPE**: `postgres` (por defecto) o `dynamodb`.
 - Si `DB_TYPE=postgres`:
   - **DB_HOST**, **DB_NAME**, **DB_USER**, **DB_PASS**.
@@ -49,6 +53,7 @@ Las respuestas de error gestionan validación (`pydantic`), integridad/operació
   - **DB_DYNAMONAME**: nombre de la tabla (por defecto `tickets`).
 
 ### Ejecución local (opcional)
+
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -59,6 +64,7 @@ python app/main.py
 ```
 
 ### Contenedor
+
 ```bash
 # Construir
 docker build -t tickets-app:latest .
@@ -70,21 +76,26 @@ docker run --rm -p 8080:8080 \
 ```
 
 ### Despliegue en AWS (CloudFormation)
+
 Orden recomendado de plantillas:
+
 1. `ecr.yml` → crea el repositorio y subir la imagen.
 2. `db_postgres.yml` o `db_dynamodb.yml` → crea la base de datos elegida.
 3. `main.yml` → despliega VPC Link, NLB, ECS Fargate, API Gateway y enlaza la imagen y variables.
 
 Parámetros clave de `main.yml`:
+
 - **ImageName**: `<repo>:<tag>` en ECR.
 - **VpcId**, **SubnetIds**: VPC y subredes existentes.
 - **DBType**: `postgres` o `dynamodb`.
 - Campos de DB correspondientes: `DBHost`, `DBName`, `DBUser`, `DBPass` o `DBDynamoName`.
 
 ### Probar con `frontend.html`
+
 `frontend.html` es una página estática que consume los endpoints del API Gateway usando `fetch` y la cabecera `x-api-key`.
 
 Uso rápido:
+
 1. Abrir el archivo `frontend.html` en el navegador (doble clic o `file:///...`).
 2. En el modal de configuración inicial, introducir:
    - **API URL**: la URL del Stage (por ejemplo, `https://<rest-api-id>.execute-api.us-east-1.amazonaws.com/prod`).
@@ -93,9 +104,12 @@ Uso rápido:
 4. Crear/editar/mover tickets en el tablero. Las operaciones llaman a `POST /items`, `GET /items`, `PUT /items/{id}` y `DELETE /items/{id}` del API Gateway.
 
 Notas:
+
 - La configuración (URL y API Key) se guarda en `localStorage` del navegador.
 - Si la API Key no es válida o el CORS falla, la app mostrará un mensaje de error.
 
 ### Notas
-- La región de las prácticas es `eu-east-1`.
+
+- La región de las prácticas es `us-east-1`.
 - El contenedor expone el puerto 8080 y el NLB escucha en el mismo puerto.
+- Se deja tanto el grupo de seguridad de la tarea de ECS como de la BBDD abierto para que los alumnos puedan acceder desde fuera para validar su trabajo. Permitiéndoles debuggear de forma sencilla.
