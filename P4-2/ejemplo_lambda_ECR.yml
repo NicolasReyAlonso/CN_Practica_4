@@ -28,7 +28,7 @@ Resources:
           DB_PASS: XXXXXX
           DB_HOST: XXXXXX
       Architectures:
-        - x86_64
+        - arm64
 
   # Lambda log_group
   LambdaLogGroup:
