@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 source ./.env.sh
 
 STACKNAME="TicketsECR"
@@ -43,7 +43,6 @@ docker push "${ECR_URI}:latest"
 IMAGE_NAME="${ECR_URI}:latest"
 
 DB_ENDPOINT=${DB_ENDPOINT:-""}
-
 #ECR
 if [[ "$DB_TYPE" == "postgres" ]]; then
   aws cloudformation create-stack \
@@ -54,7 +53,7 @@ if [[ "$DB_TYPE" == "postgres" ]]; then
       ParameterKey=DBUser,ParameterValue=$DB_USER \
       ParameterKey=DBPassword,ParameterValue=$DB_PASS \
       ParameterKey=VpcId,ParameterValue=$VPC_ID \
-      ParameterKey=SubnetIds,ParameterValue=$AWS_SUBNET_IDS
+      ParameterKey=SubnetIds,ParameterValue="$AWS_SUBNET_IDS"
 
   echo "Esperando a que se cree la DB..."
   aws cloudformation wait stack-create-complete --stack-name $RDS_STACK
@@ -79,7 +78,7 @@ aws cloudformation create-stack \
   --template-body file://./main.yml \
   --parameters ParameterKey=ImageName,ParameterValue=$IMAGE_NAME \
                ParameterKey=VpcId,ParameterValue=$VPC_ID \
-               ParameterKey=SubnetIds,ParameterValue=$AWS_SUBNET_IDS \
+               ParameterKey=SubnetIds,ParameterValue="$AWS_SUBNET_IDS" \
                ParameterKey=DBType,ParameterValue=$DB_TYPE \
                ParameterKey=DBHost,ParameterValue=$DB_ENDPOINT \
                ParameterKey=DBName,ParameterValue=$DB_NAME \
