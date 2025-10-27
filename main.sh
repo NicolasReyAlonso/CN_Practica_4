@@ -6,29 +6,81 @@ STACKNAME="TicketsECR"
 # Crear el stack de CloudFormation
 aws cloudformation create-stack \
   --stack-name $STACKNAME \
-  --template-body file://./ecr.yml \
-  --capabilities CAPABILITY_IAM
+  --template-body file://./ecr.yml
 
 # Esperar a que termine la creación
 aws cloudformation wait stack-create-complete --stack-name $STACKNAME
 
-# Obtener el URI del repositorio ECR desde los outputs
+# Obtener el URI y nombre del repositorio ECR desde los outputs
 ECR_URI=$(aws cloudformation describe-stacks \
   --stack-name $STACKNAME \
   --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
   --output text)
 
-echo "Repositorio ECR: $ECR_URI"
+REP_NAME=$(aws cloudformation describe-stacks \
+  --stack-name $STACKNAME \
+  --query "Stacks[0].Outputs[?OutputKey=='RepositoryName'].OutputValue" \
+  --output text)
 
-# Login en ECR usando el URI obtenido
+# Verificar que no estén vacíos
+if [ -z "$ECR_URI" ] || [ -z "$REP_NAME" ]; then
+  echo "Error: No se pudo obtener el URI o nombre del repositorio ECR."
+  exit 1
+fi
+
+echo "Repositorio ECR: $ECR_URI"
+echo "Nombre del repo: $REP_NAME"
+
+# Login en ECR
 aws ecr get-login-password --region $AWS_REGION | \
 docker login --username AWS --password-stdin $ECR_URI
 
 # Build de la imagen Docker
-docker build -t $IMAGE_NAME -f ./Dockerfile . --provenance false
+docker build -t $REP_NAME -f ./Dockerfile .
 
-# Taggear la imagen con el URI del ECR
-docker tag $IMAGE_NAME $ECR_URI:latest
+docker tag "$REP_NAME" "${ECR_URI}:latest"
+docker push "${ECR_URI}:latest"
+IMAGE_NAME="${ECR_URI}:latest"
 
-# Push de la imagen al ECR
-docker push $ECR_URI:latest
+DB_ENDPOINT=${DB_ENDPOINT:-""}
+#ECR
+if [[ "$DB_TYPE" == "postgres" ]]; then
+  aws cloudformation create-stack \
+    --stack-name $RDS_STACK \
+    --template-body file://./db_postgres.yml \
+    --parameters \
+      ParameterKey=DBName,ParameterValue=$DB_NAME \
+      ParameterKey=DBUser,ParameterValue=$DB_USER \
+      ParameterKey=DBPassword,ParameterValue=$DB_PASS \
+      ParameterKey=VpcId,ParameterValue=$VPC_ID \
+      ParameterKey=SubnetIds,ParameterValue="$AWS_SUBNET_IDS"
+
+  echo "Esperando a que se cree la DB..."
+  aws cloudformation wait stack-create-complete --stack-name $RDS_STACK
+
+  # Obtener outputs de la DB
+  DB_ENDPOINT=$(aws cloudformation describe-stacks \
+    --stack-name $RDS_STACK \
+    --query "Stacks[0].Outputs[?OutputKey=='DBEndpoint'].OutputValue" \
+    --output text)
+
+  DB_PORT=$(aws cloudformation describe-stacks \
+    --stack-name $RDS_STACK \
+    --query "Stacks[0].Outputs[?OutputKey=='DBPort'].OutputValue" \
+    --output text)
+
+  echo "Base de datos creada correctamente: ""$DB_ENDPOINT"":""$DB_PORT"
+fi
+
+
+aws cloudformation create-stack \
+  --stack-name $APP_STACK_NAME \
+  --template-body file://./main.yml \
+  --parameters ParameterKey=ImageName,ParameterValue=$IMAGE_NAME \
+               ParameterKey=VpcId,ParameterValue=$VPC_ID \
+               ParameterKey=SubnetIds,ParameterValue="$AWS_SUBNET_IDS" \
+               ParameterKey=DBType,ParameterValue=$DB_TYPE \
+               ParameterKey=DBHost,ParameterValue=$DB_ENDPOINT \
+               ParameterKey=DBName,ParameterValue=$DB_NAME \
+               ParameterKey=DBUser,ParameterValue=$DB_USER \
+               ParameterKey=DBPass,ParameterValue=$DB_PASS
