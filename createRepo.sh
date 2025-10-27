@@ -1,1 +1,1 @@
-aws cloudformation create-stack --stack-name TicketsECR --template-body file://P4-Aula/ecr.yml
+aws cloudformation create-stack --stack-name TicketsECR --template-body file://./ecr.yml
