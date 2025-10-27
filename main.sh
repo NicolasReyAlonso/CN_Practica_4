@@ -2,14 +2,33 @@
 source ./.env.sh
 
 STACKNAME="TicketsECR"
-APPNAME=
-aws cloudformation create-stack --stack-name $STACKNAME --template-body file://./ecr.yml
+
+# Crear el stack de CloudFormation
+aws cloudformation create-stack \
+  --stack-name $STACKNAME \
+  --template-body file://./ecr.yml \
+  --capabilities CAPABILITY_IAM
+
+# Esperar a que termine la creación
 aws cloudformation wait stack-create-complete --stack-name $STACKNAME
 
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
-
+# Obtener el URI del repositorio ECR desde los outputs
 ECR_URI=$(aws cloudformation describe-stacks \
   --stack-name $STACKNAME \
   --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
   --output text)
-docker
+
+echo "Repositorio ECR: $ECR_URI"
+
+# Login en ECR usando el URI obtenido
+aws ecr get-login-password --region $AWS_REGION | \
+docker login --username AWS --password-stdin $ECR_URI
+
+# Build de la imagen Docker
+docker build -t $IMAGE_NAME -f ./Dockerfile . --provenance false
+
+# Taggear la imagen con el URI del ECR
+docker tag $IMAGE_NAME $ECR_URI:latest
+
+# Push de la imagen al ECR
+docker push $ECR_URI:latest

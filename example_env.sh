@@ -1,0 +1,3 @@
+export AWS_REGION="XXX-XXX-XXX"
+export AWS_ACCOUNT_ID="XXXXXXXXXXXX"
+export IMAGE_NAME="XXXX:latest"
