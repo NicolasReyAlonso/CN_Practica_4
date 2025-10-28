@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 source ./.env.sh
 
 STACKNAME="TicketsECR"
@@ -43,17 +43,38 @@ docker push "${ECR_URI}:latest"
 IMAGE_NAME="${ECR_URI}:latest"
 
 DB_ENDPOINT=${DB_ENDPOINT:-""}
+
+cat > ./db_params.json <<EOF
+[
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "$DB_NAME"
+  },
+  {
+    "ParameterKey": "DBUser",
+    "ParameterValue": "$DB_USER"
+  },
+  {
+    "ParameterKey": "DBPassword",
+    "ParameterValue": "$DB_PASS"
+  },
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "$VPC_ID"
+  },
+  {
+    "ParameterKey": "SubnetIds",
+    "ParameterValue": "$AWS_SUBNET_IDS"
+  }
+]
+EOF
+
 #ECR
 if [[ "$DB_TYPE" == "postgres" ]]; then
   aws cloudformation create-stack \
     --stack-name $RDS_STACK \
     --template-body file://./db_postgres.yml \
-    --parameters \
-      ParameterKey=DBName,ParameterValue=$DB_NAME \
-      ParameterKey=DBUser,ParameterValue=$DB_USER \
-      ParameterKey=DBPassword,ParameterValue=$DB_PASS \
-      ParameterKey=VpcId,ParameterValue=$VPC_ID \
-      ParameterKey=SubnetIds,ParameterValue="$AWS_SUBNET_IDS"
+    --parameters file://./db_params.json
 
   echo "Esperando a que se cree la DB..."
   aws cloudformation wait stack-create-complete --stack-name $RDS_STACK
@@ -72,15 +93,47 @@ if [[ "$DB_TYPE" == "postgres" ]]; then
   echo "Base de datos creada correctamente: ""$DB_ENDPOINT"":""$DB_PORT"
 fi
 
+cat > ./main_params.json <<EOF
+[
+  {
+    "ParameterKey": "ImageName",
+    "ParameterValue": "$DIMAGE_NAME"
+  },
+  {
+    "ParameterKey": "VpcId",
+    "ParameterValue": "$VPC_ID"
+  },
+  {
+    "ParameterKey": "DBType",
+    "ParameterValue": "$DB_TYPE"
+  },
+  {
+    "ParameterKey": "SubnetIds",
+    "ParameterValue": "$AWS_SUBNET_IDS"
+  },
+  {
+    "ParameterKey": "DBHost",
+    "ParameterValue": "$DB_ENDPOINT"
+  },
+  {
+    "ParameterKey": "DBName",
+    "ParameterValue": "$DB_NAME"
+  },
+  {
+    "ParameterKey": "DBUser",
+    "ParameterValue": "$DB_USER"
+  },
+  {
+    "ParameterKey": "DBPass",
+    "ParameterValue": "$DB_PASS"
+  }
+]
+EOF
 
 aws cloudformation create-stack \
   --stack-name $APP_STACK_NAME \
   --template-body file://./main.yml \
-  --parameters ParameterKey=ImageName,ParameterValue=$IMAGE_NAME \
-               ParameterKey=VpcId,ParameterValue=$VPC_ID \
-               ParameterKey=SubnetIds,ParameterValue="$AWS_SUBNET_IDS" \
-               ParameterKey=DBType,ParameterValue=$DB_TYPE \
-               ParameterKey=DBHost,ParameterValue=$DB_ENDPOINT \
-               ParameterKey=DBName,ParameterValue=$DB_NAME \
-               ParameterKey=DBUser,ParameterValue=$DB_USER \
-               ParameterKey=DBPass,ParameterValue=$DB_PASS
+  --parameters file://./main_params.json
+
+  echo "Esperando a que se cree la APP"
+  aws cloudformation wait stack-create-complete --stack-name $RDS_STACK

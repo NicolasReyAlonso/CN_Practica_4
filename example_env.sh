@@ -1,7 +1,8 @@
-export AWS_REGION="xx"
-export AWS_ACCOUNT_ID="xx"
-export APP_STACK_NAME="xx"
-export AWS_SUBNET_IDS="xx,xx,xx"
+#!/bin/zsh
+export AWS_REGION="XX"
+export AWS_ACCOUNT_ID="XX"
+export APP_STACK_NAME="XX"
+export AWS_SUBNET_IDS="XX"
 export VPC_ID="XX"
 export DB_TYPE="XX"
 export DB_NAME="XX"
