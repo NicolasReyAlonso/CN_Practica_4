@@ -10,7 +10,7 @@ Resources:
   GetTicketsLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: get-tickets
+      FunctionName: get-crumb
       # PackageType: Image is mandatory for a lambda with docker loaded from ECR
       PackageType: Image
       Code:

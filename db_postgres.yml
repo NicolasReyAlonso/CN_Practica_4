@@ -1,53 +1,54 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "RDS PostgreSQL"
+Description: "RDS PostgreSQL para Crumblr (almacena los crumbs)"
 
 Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
-    Description: VPC for DB
+    Description: VPC para la base de datos
 
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: Subnets (min 2)
+    Description: Subnets (mínimo 2)
 
   DBName:
     Type: String
-    Default: ticketsdb
-    Description: DB Name
+    Default: crumblr_db
+    Description: Nombre de la base de datos
 
   DBUser:
     Type: String
     Default: postgres
-    Description: Master User
+    Description: Usuario maestro
 
   DBPassword:
     Type: String
     NoEcho: true
     MinLength: 8
-    Description: Master User Password
+    Description: Contraseña del usuario maestro
+
 Resources:
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for RDS PostgreSQL
+      GroupDescription: "Security group para RDS PostgreSQL (Crumblr)"
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          CidrIp: 0.0.0.0/0
+          CidrIp: 0.0.0.0/0  # ⚠️ Abierto a todos; idealmente cambiar a rango del backend
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupName: tickets-db-subnet-group
-      DBSubnetGroupDescription: Subnet group for tickets PostgreSQL database
+      DBSubnetGroupName: crumblr-db-subnet-group
+      DBSubnetGroupDescription: "Subnet group para la base de datos PostgreSQL de Crumblr"
       SubnetIds: !Ref SubnetIds
 
   PostgresDBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: tickets-postgres-db
+      DBInstanceIdentifier: crumblr-postgres-db
       Engine: postgres
       EngineVersion: "17.6"
       DBInstanceClass: db.t3.micro
@@ -59,23 +60,33 @@ Resources:
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
-      PubliclyAccessible: true
+      PubliclyAccessible: true   # ⚠️ Solo si el backend no está en la misma VPC
       BackupRetentionPeriod: 0
       DeletionProtection: false
+      MultiAZ: false
+      StorageEncrypted: true
 
 Outputs:
   DBEndpoint:
-    Description: PostgreSQL Endpoint
+    Description: "Endpoint del servidor PostgreSQL de Crumblr"
     Value: !GetAtt PostgresDBInstance.Endpoint.Address
+    Export:
+      Name: Crumblr-DB-Endpoint
 
   DBPort:
-    Description: DB PORT
+    Description: "Puerto del servidor PostgreSQL"
     Value: !GetAtt PostgresDBInstance.Endpoint.Port
+    Export:
+      Name: Crumblr-DB-Port
 
   DBName:
-    Description: DB NAME
+    Description: "Nombre de la base de datos"
     Value: !Ref DBName
+    Export:
+      Name: Crumblr-DB-Name
 
   DBUser:
-    Description: DB USER
+    Description: "Usuario maestro de la base de datos"
     Value: !Ref DBUser
+    Export:
+      Name: Crumblr-DB-User

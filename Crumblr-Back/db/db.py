@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from models.ticket import Ticket
+from Crumblr.models.crumb import Crumb
 
 class Database(ABC):
     
@@ -9,21 +9,21 @@ class Database(ABC):
         pass
     
     @abstractmethod
-    def create_ticket(self, ticket: Ticket) -> Ticket:
+    def create_crumb(self, crumb: Crumb) -> Crumb:
         pass
     
     @abstractmethod
-    def get_ticket(self, ticket_id: str) -> Optional[Ticket]:
+    def get_crumb(self, crumb_id: str) -> Optional[Crumb]:
         pass
     
     @abstractmethod
-    def get_all_tickets(self) -> List[Ticket]:
+    def get_all_crumbs(self) -> List[Crumb]:
         pass
     
     @abstractmethod
-    def update_ticket(self, ticket_id: str, ticket: Ticket) -> Optional[Ticket]:
+    def update_crumb(self, crumb_id: str, crumb: Crumb) -> Optional[Crumb]:
         pass
     
     @abstractmethod
-    def delete_ticket(self, ticket_id: str) -> bool:
+    def delete_crumb(self, crumb_id: str) -> bool:
         pass

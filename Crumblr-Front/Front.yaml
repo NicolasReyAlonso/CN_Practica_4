@@ -1,0 +1,105 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr Frontend Cluster (EC2 + ALB + AutoScaling)"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID donde se desplegará el cluster
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets públicas (mínimo 2 para balanceo)
+
+  ECRImageUri:
+    Type: String
+    Description: URI completo de la imagen en ECR (por ejemplo: 123456789012.dkr.ecr.us-east-1.amazonaws.com/crumblr-repo:latest)
+
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Nombre del par de claves SSH para acceder a las instancias
+
+Resources:
+  CrumblrSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Permitir HTTP para Crumblr Frontend"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  CrumblrLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: "CrumblrFrontendTemplate"
+      LaunchTemplateData:
+        ImageId: ami-0c02fb55956c7d316 # Amazon Linux 2 (ejemplo, usa tu región)
+        InstanceType: t3.micro
+        KeyName: !Ref KeyPairName
+        SecurityGroupIds:
+          - !Ref CrumblrSecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            yum update -y
+            amazon-linux-extras install docker -y
+            systemctl start docker
+            systemctl enable docker
+            $(aws ecr get-login --no-include-email --region ${AWS::Region})
+            docker pull ${ECRImageUri}
+            docker run -d -p 80:80 ${ECRImageUri}
+
+  CrumblrTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 80
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+
+  CrumblrLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "CrumblrFrontALB"
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref CrumblrSecurityGroup
+      Scheme: internet-facing
+      Type: application
+
+  CrumblrListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref CrumblrLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref CrumblrTargetGroup
+
+  CrumblrAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: !Ref SubnetIds
+      LaunchTemplate:
+        LaunchTemplateId: !Ref CrumblrLaunchTemplate
+        Version: !GetAtt CrumblrLaunchTemplate.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 2
+      DesiredCapacity: 1
+      TargetGroupARNs:
+        - !Ref CrumblrTargetGroup
+
+Outputs:
+  LoadBalancerDNS:
+    Description: "Frontend URL"
+    Value: !GetAtt CrumblrLoadBalancer.DNSName

@@ -2,14 +2,12 @@ import os
 from typing import Dict, Type
 from .db import Database
 from .postgres_db import PostgresDatabase
-from .dynamodb_db import DynamoDBDatabase
 
 
 class DatabaseFactory:
     
     _databases: Dict[str, Type[Database]] = {
-        'postgres': PostgresDatabase,
-        'dynamodb': DynamoDBDatabase,
+        'postgres': PostgresDatabase
     }
     
     @classmethod

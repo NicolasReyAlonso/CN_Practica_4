@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Tickets ECR Repository"
+Description: "Crumblr ECR Repository"
 
 Parameters:
   RepositoryName:
     Type: String
-    Default: cn/tickets-app
+    Default: cn/crumblr-gui
     Description: ECR repository name
 
 Resources:
@@ -35,13 +35,19 @@ Resources:
 
 Outputs:
   RepositoryUri:
-    Description: ECR URI
+    Description: "ECR repository URI"
     Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: Crumblr-ECR-URI 
 
   RepositoryName:
-    Description: Repository Name
+    Description: "ECR repository name"
     Value: !Ref RepositoryName
+    Export:
+      Name: Crumblr-ECR-Name
 
   RepositoryArn:
-    Description: Repository ARN
+    Description: "ECR repository ARN"
     Value: !GetAtt ECRRepository.Arn
+    Export:
+      Name: Crumblr-ECR-ARN

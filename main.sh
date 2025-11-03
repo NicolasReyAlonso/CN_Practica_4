@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 source ./.env.sh
 
 STACKNAME="TicketsECR"
@@ -36,12 +36,12 @@ aws ecr get-login-password --region $AWS_REGION | \
 docker login --username AWS --password-stdin $ECR_URI
 
 # Build de la imagen Docker
-docker build -t $REP_NAME -f ./Dockerfile .
+docker build -t $REP_NAME -f ./Dockerfile . --platform linux/amd64 --provenance false
 
 docker tag "$REP_NAME" "${ECR_URI}:latest"
 docker push "${ECR_URI}:latest"
-IMAGE_NAME="${ECR_URI}:latest"
-
+IMAGE_NAME="/${REP_NAME}:latest"
+echo "Imagen subida: $IMAGE_NAME"
 DB_ENDPOINT=${DB_ENDPOINT:-""}
 
 cat > ./db_params.json <<EOF
@@ -97,7 +97,7 @@ cat > ./main_params.json <<EOF
 [
   {
     "ParameterKey": "ImageName",
-    "ParameterValue": "$DIMAGE_NAME"
+    "ParameterValue": "$IMAGE_NAME"
   },
   {
     "ParameterKey": "VpcId",

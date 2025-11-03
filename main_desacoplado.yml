@@ -1,19 +1,19 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Crumblr — ECS Fargate + API Gateway + PostgreSQL (or DynamoDB)"
+Description: "ECS Fargate + API Gateway REST API with API Key"
 
 Parameters:
   ImageName:
     Type: String
-    Description: ECR Image name (from Crumblr ECR stack)
-    Default: crumblr-repo:latest
+    Description: ECR Image Name
+    Default: tickets-app:latest
 
   VpcId:
     Type: AWS::EC2::VPC::Id
-    Description: Target VPC
+    Description: VPC
 
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: At least 2 subnets in different AZs
+    Description: At least 2 Subnets
 
   DBType:
     Type: String
@@ -25,37 +25,37 @@ Parameters:
   DBHost:
     Type: String
     Default: ""
-    Description: "DB Host (only used for PostgreSQL)"
+    Description: DB Host (only DBType=postgres)
 
   DBName:
     Type: String
     Default: ""
-    Description: "DB Name (only used for PostgreSQL)"
+    Description: DB Name (only DBType=postgres)
 
   DBUser:
     Type: String
     Default: ""
-    Description: "DB User (only used for PostgreSQL)"
+    Description: DB User (only DBType=postgres)
 
   DBPass:
     Type: String
     NoEcho: true
     Default: ""
-    Description: "DB Password (only used for PostgreSQL)"
+    Description: DB PASS (only DBType=postgres)
 
   DBDynamoName:
     Type: String
-    Default: "crumbs"
-    Description: "DynamoDB table name"
+    Default: "tickets"
+    Description: DynamoDB table name
 
 # ============================================================================
-# NETWORKING
+# NETWORKING RESOURCES
 # ============================================================================
 Resources:
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for Crumblr ECS tasks
+      GroupDescription: Security group for ECS tasks
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -63,13 +63,13 @@ Resources:
           ToPort: 8080
           CidrIp: 0.0.0.0/0
 
-# ============================================================================
-# LOAD BALANCER
-# ============================================================================
+  # ============================================================================
+  # LOAD BALANCER RESOURCES
+  # ============================================================================
   NLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: crumblr-nlb
+      Name: tickets-nlb
       Type: network
       Scheme: internal
       Subnets: !Ref SubnetIds
@@ -77,7 +77,7 @@ Resources:
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: crumblr-tg
+      Name: tickets-tg
       Port: 8080
       Protocol: TCP
       VpcId: !Ref VpcId
@@ -95,35 +95,38 @@ Resources:
       Port: 8080
       Protocol: TCP
 
-# ============================================================================
-# ECS
-# ============================================================================
+  # ============================================================================
+  # ECS RESOURCES
+  # ============================================================================
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: crumblr-cluster
+      ClusterName: tickets-cluster
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: crumblr-task
+      Family: tickets-task
       NetworkMode: awsvpc
-      RequiresCompatibilities: [FARGATE]
+      RequiresCompatibilities:
+        - FARGATE
       Cpu: 256
       Memory: 512
       ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       ContainerDefinitions:
-        - Name: crumblr-container
+        - Name: tickets-container
           Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
           PortMappings:
             - ContainerPort: 8080
+              Protocol: tcp
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/crumbler
+              awslogs-group: /ecs/tickets
               awslogs-region: !Ref AWS::Region
-              awslogs-stream-prefix: crumblr
+              awslogs-stream-prefix: tickets
+              awslogs-create-group: "true"
           Environment:
             - Name: DB_TYPE
               Value: !Ref DBType
@@ -140,10 +143,11 @@ Resources:
 
   ECSService:
     Type: AWS::ECS::Service
-    DependsOn: Listener
+    DependsOn:
+      - Listener
     Properties:
       Cluster: !Ref ECSCluster
-      ServiceName: crumblr-service
+      ServiceName: tickets-service
       TaskDefinition: !Ref TaskDefinition
       DesiredCount: 1
       LaunchType: FARGATE
@@ -151,132 +155,135 @@ Resources:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
           Subnets: !Ref SubnetIds
-          SecurityGroups: [!Ref ECSSecurityGroup]
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
       LoadBalancers:
-        - ContainerName: crumblr-container
+        - ContainerName: tickets-container
           ContainerPort: 8080
           TargetGroupArn: !Ref TargetGroup
 
-# ============================================================================
-# API GATEWAY
-# ============================================================================
+  # ============================================================================
+  # API GATEWAY RESOURCES
+  # ============================================================================
   VPCLink:
     Type: AWS::ApiGateway::VpcLink
     Properties:
-      Name: crumblr-vpc-link
-      TargetArns: [!Ref NLB]
+      Name: tickets-vpc-link
+      TargetArns:
+        - !Ref NLB
 
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: crumblr-api
-      Description: "REST API for Crumblr CRUD operations"
+      Name: tickets-api
+      Description: API para gestión de tickets
 
-  CrumbsResource:
+  ItemsResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref RestAPI
       ParentId: !GetAtt RestAPI.RootResourceId
-      PathPart: crumbs
+      PathPart: items
 
-  CrumbResource:
+  ItemResource:
     Type: AWS::ApiGateway::Resource
     Properties:
       RestApiId: !Ref RestAPI
-      ParentId: !Ref CrumbsResource
+      ParentId: !Ref ItemsResource
       PathPart: "{id}"
 
-  # ====== CRUD METHODS ======
-  PostCrumbs:
+  PostItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbsResource
+      ResourceId: !Ref ItemsResource
       HttpMethod: POST
       AuthorizationType: NONE
       ApiKeyRequired: true
       Integration:
         Type: HTTP_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs"
+        Uri: !Sub "http://${NLB.DNSName}:8080/items"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
 
-  GetCrumbs:
+  GetItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbsResource
+      ResourceId: !Ref ItemsResource
       HttpMethod: GET
       AuthorizationType: NONE
       ApiKeyRequired: true
       Integration:
         Type: HTTP_PROXY
         IntegrationHttpMethod: GET
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs"
+        Uri: !Sub "http://${NLB.DNSName}:8080/items"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
 
-  GetCrumb:
+  GetItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
+      ResourceId: !Ref ItemResource
       HttpMethod: GET
       AuthorizationType: NONE
       ApiKeyRequired: true
-      RequestParameters: { method.request.path.id: true }
+      RequestParameters:
+        method.request.path.id: true
       Integration:
         Type: HTTP_PROXY
         IntegrationHttpMethod: GET
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs/{id}"
+        Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  PutCrumb:
+  PutItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
+      ResourceId: !Ref ItemResource
       HttpMethod: PUT
       AuthorizationType: NONE
       ApiKeyRequired: true
-      RequestParameters: { method.request.path.id: true }
+      RequestParameters:
+        method.request.path.id: true
       Integration:
         Type: HTTP_PROXY
         IntegrationHttpMethod: PUT
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs/{id}"
+        Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  DeleteCrumb:
+  DeleteItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
+      ResourceId: !Ref ItemResource
       HttpMethod: DELETE
       AuthorizationType: NONE
       ApiKeyRequired: true
-      RequestParameters: { method.request.path.id: true }
+      RequestParameters:
+        method.request.path.id: true
       Integration:
         Type: HTTP_PROXY
         IntegrationHttpMethod: DELETE
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs/{id}"
+        Uri: !Sub "http://${NLB.DNSName}:8080/items/{id}"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  # ====== CORS ======
-  OptionsCrumbs:
+  OptionsItemsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbsResource
+      ResourceId: !Ref ItemsResource
       HttpMethod: OPTIONS
       AuthorizationType: NONE
       ApiKeyRequired: false
@@ -291,7 +298,7 @@ Resources:
             ResponseTemplates:
               application/json: ""
         RequestTemplates:
-          application/json: '{"statusCode":200}'
+          application/json: '{"statusCode": 200}'
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -299,11 +306,11 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  OptionsCrumb:
+  OptionsItemMethod:
     Type: AWS::ApiGateway::Method
     Properties:
       RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
+      ResourceId: !Ref ItemResource
       HttpMethod: OPTIONS
       AuthorizationType: NONE
       ApiKeyRequired: false
@@ -318,7 +325,7 @@ Resources:
             ResponseTemplates:
               application/json: ""
         RequestTemplates:
-          application/json: '{"statusCode":200}'
+          application/json: '{"statusCode": 200}'
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -326,19 +333,16 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-# ============================================================================
-# DEPLOYMENT
-# ============================================================================
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
-      - PostCrumbs
-      - GetCrumbs
-      - GetCrumb
-      - PutCrumb
-      - DeleteCrumb
-      - OptionsCrumbs
-      - OptionsCrumb
+      - PostItemsMethod
+      - GetItemsMethod
+      - GetItemMethod
+      - PutItemMethod
+      - DeleteItemMethod
+      - OptionsItemsMethod
+      - OptionsItemMethod
     Properties:
       RestApiId: !Ref RestAPI
 
@@ -352,14 +356,14 @@ Resources:
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: crumblr-api-key
+      Name: tickets-api-key
       Enabled: true
 
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     DependsOn: APIStage
     Properties:
-      UsagePlanName: crumblr-usage-plan
+      UsagePlanName: tickets-usage-plan
       ApiStages:
         - ApiId: !Ref RestAPI
           Stage: !Ref APIStage
@@ -376,9 +380,9 @@ Resources:
 # ============================================================================
 Outputs:
   APIEndpoint:
-    Description: "Crumblr API URL"
-    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Description: API Gateway URL
+    Value: !Sub "https://${RestAPI}.execute-api.us-east-1.amazonaws.com/prod"
 
   APIKeyId:
-    Description: "API Key ID"
+    Description: API Key ID
     Value: !Ref APIKey
