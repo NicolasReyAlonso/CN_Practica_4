@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from pydantic import ValidationError
 import psycopg2
-from Crumblr.models.crumb import Crumb
+from models.crumb import Crumb
 from db.factory import DatabaseFactory
 
 app = Flask(__name__)

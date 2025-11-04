@@ -12,7 +12,7 @@ Parameters:
 
   ECRImageUri:
     Type: String
-    Description: URI completo de la imagen en ECR (por ejemplo: 123456789012.dkr.ecr.us-east-1.amazonaws.com/crumblr-repo:latest)
+    Description: "URI completo de la imagen en ECR (por ejemplo: 123456789012.dkr.ecr.us-east-1.amazonaws.com/crumblr-repo:latest)"
 
   KeyPairName:
     Type: AWS::EC2::KeyPair::KeyName

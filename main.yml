@@ -102,6 +102,11 @@ Resources:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: crumblr-cluster
+  CrumblrLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumblr-service
+      RetentionInDays: 14
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -121,7 +126,7 @@ Resources:
           LogConfiguration:
             LogDriver: awslogs
             Options:
-              awslogs-group: /ecs/crumbler
+              awslogs-group: /ecs/crumblr-service
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: crumblr
           Environment:

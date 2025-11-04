@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from Crumblr.models.crumb import Crumb
+from models.crumb import Crumb
 
 class Database(ABC):
     

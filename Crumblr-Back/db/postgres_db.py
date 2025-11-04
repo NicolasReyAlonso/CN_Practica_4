@@ -3,7 +3,7 @@ import psycopg2.extras
 import json
 from typing import List, Optional
 from .db import Database
-from Crumblr.models.crumb import Crumb
+from models.crumb import Crumb
 import os
 
 class PostgresDatabase(Database):

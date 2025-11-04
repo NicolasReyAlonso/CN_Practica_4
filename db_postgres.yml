@@ -64,7 +64,7 @@ Resources:
       BackupRetentionPeriod: 0
       DeletionProtection: false
       MultiAZ: false
-      StorageEncrypted: true
+      StorageEncrypted: false
 
 Outputs:
   DBEndpoint:

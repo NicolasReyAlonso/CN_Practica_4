@@ -38,16 +38,16 @@ Outputs:
     Description: "ECR repository URI"
     Value: !GetAtt ECRRepository.RepositoryUri
     Export:
-      Name: Crumblr-ECR-URI 
+      Name: Crumblr-Front-ECR-URI 
 
   RepositoryName:
     Description: "ECR repository name"
     Value: !Ref RepositoryName
     Export:
-      Name: Crumblr-ECR-Name
+      Name: Crumblr-Front-ECR-Name
 
   RepositoryArn:
     Description: "ECR repository ARN"
     Value: !GetAtt ECRRepository.Arn
     Export:
-      Name: Crumblr-ECR-ARN
+      Name: Crumblr-Front-ECR-ARN
