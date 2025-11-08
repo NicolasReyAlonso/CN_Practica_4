@@ -206,20 +206,19 @@ Resources:
         Uri: !Sub "http://${NLB.DNSName}:8080/crumbs"
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
-          PostCrumbs:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbsResource
-      HttpMethod: POST
-      AuthorizationType: NONE
-      ApiKeyRequired: true
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: POST
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+    
 
   GetCrumbs:
     Type: AWS::ApiGateway::Method
@@ -339,123 +338,7 @@ Resources:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
 
-  GetCrumbs:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbsResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      ApiKeyRequired: true
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
 
-  GetCrumb:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
-      HttpMethod: GET
-      AuthorizationType: NONE
-      ApiKeyRequired: true
-      RequestParameters: { method.request.path.id: true }
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: GET
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs/{id}"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        RequestParameters:
-          integration.request.path.id: method.request.path.id
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-
-
-  PutCrumb:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
-      HttpMethod: PUT
-      AuthorizationType: NONE
-      ApiKeyRequired: true
-      RequestParameters: { method.request.path.id: true }
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: PUT
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs/{id}"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        RequestParameters:
-          integration.request.path.id: method.request.path.id
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
-
-  DeleteCrumb:
-    Type: AWS::ApiGateway::Method
-    Properties:
-      RestApiId: !Ref RestAPI
-      ResourceId: !Ref CrumbResource
-      HttpMethod: DELETE
-      AuthorizationType: NONE
-      ApiKeyRequired: true
-      RequestParameters: { method.request.path.id: true }
-      Integration:
-        Type: HTTP_PROXY
-        IntegrationHttpMethod: DELETE
-        Uri: !Sub "http://${NLB.DNSName}:8080/crumbs/{id}"
-        ConnectionType: VPC_LINK
-        ConnectionId: !Ref VPCLink
-        RequestParameters:
-          integration.request.path.id: method.request.path.id
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Origin: true
-            method.response.header.Access-Control-Allow-Headers: true
-            method.response.header.Access-Control-Allow-Methods: true
 
   # ====== CORS ======
   OptionsCrumbs:

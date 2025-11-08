@@ -1,5 +1,5 @@
-const API_URL = "https://ijej4y7rpe.execute-api.us-east-1.amazonaws.com/prod"; // tu endpoint
-const API_KEY = "bqzx0qhWtT6MnttK9urZE79jK7Z6scok6osSlsuN"; // 🔑 poné aquí tu API Key real
+const API_URL = "https://v4vbkmeftj.execute-api.us-east-1.amazonaws.com/prod/crumbs"; // tu endpoint
+const API_KEY = "x3SV9yBfwuWJ3M3NyT3E541ykzkEWdN9jrMj40ah"; // 🔑 poné aquí tu API Key real
 
 async function fetchCrumbs() {
   const res = await fetch(API_URL, {
