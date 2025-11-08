@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Crumblr ECR Repository"
+Description: "Crumblr Lambda Repositories"
 
 Parameters:
   RepositoryName:
     Type: String
-    Default: cn/crumblr-repo
+    Default: update-crumb
     Description: ECR repository name
 
 Resources:

@@ -1,0 +1,394 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr — AWS Lambda + API Gateway + PostgreSQL/DynamoDB"
+
+Parameters:
+  ImageName:
+    Type: String
+    Description: ECR Image name (from Crumblr ECR stack)
+    Default: crumblr-repo:latest
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Target VPC
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id
+    Description: At least 2 subnets in different AZs
+
+  DBType:
+    Type: String
+    Default: postgres
+    AllowedValues:
+      - postgres
+      - dynamodb
+
+  DBHost:
+    Type: String
+    Default: ""
+    Description: "DB Host (only used for PostgreSQL)"
+
+  DBName:
+    Type: String
+    Default: ""
+    Description: "DB Name (only used for PostgreSQL)"
+
+  DBUser:
+    Type: String
+    Default: ""
+    Description: "DB User (only used for PostgreSQL)"
+
+  DBPass:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: "DB Password (only used for PostgreSQL)"
+
+  DBDynamoName:
+    Type: String
+    Default: "crumbs"
+    Description: "DynamoDB table name"
+
+# =====================================================================
+# LAMBDAS
+# =====================================================================
+Resources:
+
+  CreateCrumbLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: create-crumb
+      PackageType: Image
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-crumb:latest"
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_TYPE: !Ref DBType
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASS: !Ref DBPass
+          DB_DYNAMONAME: !Ref DBDynamoName
+
+  GetCrumbLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-crumb
+      PackageType: Image
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/get-crumb:latest"
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_TYPE: !Ref DBType
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASS: !Ref DBPass
+          DB_DYNAMONAME: !Ref DBDynamoName
+  GetCrumbsLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-crumb
+      PackageType: Image
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/get-crumbs:latest"
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_TYPE: !Ref DBType
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASS: !Ref DBPass
+          DB_DYNAMONAME: !Ref DBDynamoName
+
+  UpdateCrumbLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: update-crumb
+      PackageType: Image
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/update-crumb:latest"
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_TYPE: !Ref DBType
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASS: !Ref DBPass
+          DB_DYNAMONAME: !Ref DBDynamoName
+
+  DeleteCrumbLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: delete-crumb
+      PackageType: Image
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/delete-crumb:latest"
+      Timeout: 15
+      MemorySize: 512
+      Environment:
+        Variables:
+          DB_TYPE: !Ref DBType
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASS: !Ref DBPass
+          DB_DYNAMONAME: !Ref DBDynamoName
+
+# =====================================================================
+# API GATEWAY
+# =====================================================================
+
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: crumblr-api
+      Description: "REST API for Crumblr CRUD operations"
+
+  CrumbsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: crumbs
+
+  CrumbResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !Ref CrumbsResource
+      PathPart: "{id}"
+
+  # ---------------- Lambda permissions ----------------
+  CreateLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreateCrumbLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+  GetLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetCrumbLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+  UpdateLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdateCrumbLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+  DeleteLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DeleteCrumbLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+  # ---------------- Methods ----------------
+  PostCrumbs:
+    Type: AWS::ApiGateway::Method
+    DependsOn: CreateLambdaPermission
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateCrumbLambda.Arn}/invocations"
+
+  GetCrumbs:
+    Type: AWS::ApiGateway::Method
+    DependsOn: GetLambdaPermission
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetCrumbLambda.Arn}/invocations"
+
+  GetCrumb:
+    Type: AWS::ApiGateway::Method
+    DependsOn: GetLambdaPermission
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters: { method.request.path.id: true }
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetCrumbsLambda.Arn}/invocations"
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  PutCrumb:
+    Type: AWS::ApiGateway::Method
+    DependsOn: UpdateLambdaPermission
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters: { method.request.path.id: true }
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: PUT
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateCrumbLambda.Arn}/invocations"
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  DeleteCrumb:
+    Type: AWS::ApiGateway::Method
+    DependsOn: DeleteLambdaPermission
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters: { method.request.path.id: true }
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: DELETE
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteCrumbLambda.Arn}/invocations"
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  # ---------------- CORS ----------------
+  OptionsCrumbs:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  OptionsCrumb:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+# =====================================================================
+# DEPLOYMENT
+# =====================================================================
+
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostCrumbs
+      - GetCrumbs
+      - GetCrumb
+      - PutCrumb
+      - DeleteCrumb
+      - OptionsCrumbs
+      - OptionsCrumb
+    Properties:
+      RestApiId: !Ref RestAPI
+
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref APIDeployment
+      StageName: prod
+
+  APIKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: crumblr-api-key
+      Enabled: true
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIStage
+    Properties:
+      UsagePlanName: crumblr-usage-plan
+      ApiStages:
+        - ApiId: !Ref RestAPI
+          Stage: !Ref APIStage
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref APIKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+# =====================================================================
+# OUTPUTS
+# =====================================================================
+Outputs:
+  APIEndpoint:
+    Description: "Crumblr API URL"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  APIKeyId:
+    Description: "API Key ID"
+    Value: !Ref APIKey
