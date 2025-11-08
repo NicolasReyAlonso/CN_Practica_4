@@ -1,7 +1,18 @@
-const API_URL = "http://localhost:8080/crumbs"; // cámbialo por tu dominio en AWS
+const API_URL = "https://ijej4y7rpe.execute-api.us-east-1.amazonaws.com/prod"; // tu endpoint
+const API_KEY = "bqzx0qhWtT6MnttK9urZE79jK7Z6scok6osSlsuN"; // 🔑 poné aquí tu API Key real
 
 async function fetchCrumbs() {
-  const res = await fetch(API_URL);
+  const res = await fetch(API_URL, {
+    headers: {
+      "x-api-key": API_KEY
+    }
+  });
+
+  if (!res.ok) {
+    alert("Error al obtener los crumbs");
+    return;
+  }
+
   const data = await res.json();
   const list = document.getElementById("crumbs-list");
   list.innerHTML = "";
@@ -29,7 +40,10 @@ async function createCrumb(e) {
 
   const res = await fetch(API_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY
+    },
     body: JSON.stringify({ content, image_url })
   });
 
@@ -42,7 +56,13 @@ async function createCrumb(e) {
 }
 
 async function deleteCrumb(id) {
-  const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+  const res = await fetch(`${API_URL}/${id}`, {
+    method: "DELETE",
+    headers: {
+      "x-api-key": API_KEY
+    }
+  });
+
   if (res.ok) fetchCrumbs();
   else alert("Error al eliminar el crumb");
 }
