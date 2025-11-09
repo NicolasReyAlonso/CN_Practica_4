@@ -21,7 +21,7 @@ from diagrams.aws.security import Shield as SecurityGroup
 #   - Backend ECS Fargate behind a Network Load Balancer (internal) + API Gateway (VPC LINK)
 #   - Frontend ECS Fargate behind an Internet-facing Application Load Balancer
 
-with Diagram("Crumblr - ECS Fargate + API Gateway + PostgreSQL", show=False, filename="crumblr_architecture", direction="TB"):
+with Diagram("Crumblr - ECS Fargate + API Gateway + PostgreSQL", show=False, filename="crumblr_architecture_coupled", direction="TB"):
     user = Client("Internet User")
 
     # FRONTEND (public)
