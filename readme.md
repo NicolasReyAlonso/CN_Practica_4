@@ -190,13 +190,35 @@ Parámetros clave de `main.yml`:
 - Campos de DB correspondientes: `DBHost`, `DBName`, `DBUser`, `DBPass` o `DBDynamoName`.
 
 
-Notas:
+### COSTO:
+#### Acoplado:
+***Calculo para un supuesto uso moderado de la aplicación***
+- ECS:
+Pricing calculations
+10 GB per hour / 1 GB processed bytes per hour per LCU for EC2 instances and IP addresses as targets = 10 processed bytes LCUs for EC2 instances and IP addresses as targets
+100 new connections per second / 25 new connections per second per LCU = 4 new connections LCUs
+100 new connections per second x 300 seconds = 30,000 active connections
+30,000 active connections / 3000 connections per LCU = 10 active connections LCUs
+Max (0 USD, 0 USD) = 0.00 paid rules per request
+Max (10 processed bytes LCUs , 4 new connections LCUs , 10 active connections LCUs , 0 rule evaluation LCUs ) = 10 maximum LCUs
+1 load balancers x 10 LCUs x 0.01 LCU price per hour x 730 hours per month = 73.00 USD
+Application Load Balancer LCU usage charges (monthly): 73.00 USD
 
-- La configuración (URL y API Key) se guarda en `localStorage` del navegador.
-- Si la API Key no es válida o el CORS falla, la app mostrará un mensaje de error.
-
+#### Fuente:
+- [aws pricing calculator](https://calculator.aws/)
+- [chatGPT]()
+- [claude]()
 ### Notas
 
 - La región de las prácticas es `us-east-1`.
 - El contenedor expone el puerto 8080 y el NLB escucha en el mismo puerto.
 - Se deja tanto el grupo de seguridad de la tarea de ECS como de la BBDD abierto para que los alumnos puedan acceder desde fuera para validar su trabajo. Permitiéndoles debuggear de forma sencilla.
+
+### Uso de IA
+- Ayuda en el desarrollo del frontend.
+- Ayuda en el proceso de debuggeo (Explicarme por que me salian los errores que me salian y que significaban).
+- En un momento del desarrollo se me rompió la indentanción en el main.yml desacoplado y lo arreglé con IA.
+- Aprendizaje de la herramienta de diagramas "diagram" de python.
+- Debugging de backend desacoplado.
+- Correcciones de ortografía y redacción.
+- Identificación de errores de concepto en los yaml
