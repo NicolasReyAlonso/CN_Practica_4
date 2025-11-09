@@ -1,0 +1,5 @@
+APIKEYID="w2og7pj248"
+aws apigateway get-api-key \
+    --api-key ${APIKEYID} \
+    --include-value \
+    --region us-east-1

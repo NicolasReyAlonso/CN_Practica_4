@@ -4,7 +4,7 @@ Description: "Crumblr ECR Repository"
 Parameters:
   RepositoryName:
     Type: String
-    Default: cn/crumblr-gui
+    Default: crumblr-gui
     Description: ECR repository name
 
 Resources:

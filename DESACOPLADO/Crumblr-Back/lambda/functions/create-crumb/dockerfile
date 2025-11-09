@@ -1,0 +1,20 @@
+# Base image oficial de AWS Lambda para Python 3.11
+FROM public.ecr.aws/lambda/python:3.11
+
+# Copiar código de la Lambda
+COPY app.py ${LAMBDA_TASK_ROOT}/
+
+# Copiar código compartido
+COPY ./shared ${LAMBDA_TASK_ROOT}/shared
+
+# Crear __init__.py en todas las carpetas para que Python las reconozca como módulos
+RUN touch ${LAMBDA_TASK_ROOT}/shared/__init__.py && \
+    touch ${LAMBDA_TASK_ROOT}/shared/db/__init__.py && \
+    touch ${LAMBDA_TASK_ROOT}/shared/models/__init__.py && \
+    touch ${LAMBDA_TASK_ROOT}/shared/services/__init__.py
+
+# Instalar dependencias
+RUN pip install --no-cache-dir pydantic psycopg2-binary
+
+# Comando de arranque para Lambda
+CMD ["app.handler"]

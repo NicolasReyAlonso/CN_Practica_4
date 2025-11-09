@@ -1,5 +1,5 @@
-const API_URL = "https://v4vbkmeftj.execute-api.us-east-1.amazonaws.com/prod/crumbs";
-const API_KEY = "x3SV9yBfwuWJ3M3NyT3E541ykzkEWdN9jrMj40ah";
+const API_URL = "https://0lqziua1y9.execute-api.us-east-1.amazonaws.com/prod/crumbs";
+const API_KEY = "McAPKEIMdV1s6P4C5IVvr4sxz5jE9CQa7JcjqMlR";
 
 
 async function fetchCrumbs() {

@@ -1,14 +1,29 @@
-## Práctica de Aula 4 — Computación en la Nube
+# Practica Entregable: CRUMBLR
+## Descripción de la aplicación
+Crumblr es una página web sucesora espiritual de tumblr en la que es posible hacer microblogging con capacidad de estilo de html
 
-Esta es la solución de partida para la práctica de aula 4 de la asignatura de Computación en la Nube (EII-ULPGC). Proporciona una API REST de gestión de tickets desarrollada con Flask y preparada para desplegarse en AWS sobre ECS Fargate, con entrada por API Gateway y balanceo mediante un Network Load Balancer. La idea es que el alumno comprenda la arquitectura para en la parte bis realizar el desacoplamiento y demostración de la funcionalidad
+## Bases de datos:
+- Postgres
+Utilicé postgres porque es la base de datos con la que estoy más familiarizado y porque encaja bien con el tipo de aplicación que estoy creando.
 
 ### Diagrama de arquitectura
 
 ![Diagrama de la práctica](Diagram.png)
 
-### Componentes principales
+### Componentes principales **ACOPLADO**
 
-- **API Gateway (REST)**: expone los recursos `items` e `item` y enruta al backend vía VPC Link. Protegido con API Key.
+- **API Gateway (REST)**: expone los recursos `crumbs` y `crum` y enruta al backend vía VPC Link. Protegido con API Key.
+- **VPC Link + NLB**: el VPC Link conecta API Gateway con un Network Load Balancer interno que apunta al servicio de ECS.
+- **ECS Fargate 1**: ejecuta el contenedor de la app Flask definido en `/Crumblr-Front/Dockerfile` y `/Crumblr-Front/mainFront.yml`.
+- **ECS Fargate 2**: ejecuta el contenedor del frontend `Dockerfile` y `main.yml`.
+- **Bases de datos**:
+  - **PostgreSQL (Amazon RDS)** en el VPC, con SG de acceso al puerto 5432.
+  - **Amazon DynamoDB** como alternativa NoSQL de tabla única.
+- **Amazon ECR**: repositorio para la imagen del contenedor.
+
+### Componentes principales **ACOPLADO**
+
+- **API Gateway (REST)**: expone los recursos `crumbs` y `crum` y enruta al backend vía VPC Link. Protegido con API Key.
 - **VPC Link + NLB**: el VPC Link conecta API Gateway con un Network Load Balancer interno que apunta al servicio de ECS.
 - **ECS Fargate**: ejecuta el contenedor de la app Flask definido en `Dockerfile` y `main.yml`.
 - **Bases de datos**:

@@ -2,7 +2,7 @@ import psycopg2
 import psycopg2.extras
 import json
 from typing import List, Optional
-from db import Database
+from shared.db.db import Database
 from shared.models.crumb import Crumb
 import os
 

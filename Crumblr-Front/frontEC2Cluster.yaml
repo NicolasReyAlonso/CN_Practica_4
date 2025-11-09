@@ -9,6 +9,12 @@ Parameters:
   ImageName:
     Type: String
     Description: "ECR image name (e.g., crumblr-frontend-repo:latest)"
+  APIURL:
+    Type: String
+    Description: The full API URL (e.g., https://...)
+  APIKEY:
+    Type: String
+    Description: The API key
 
 Resources:
   # -----------------------------------------------------------
@@ -27,6 +33,14 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+
+  # -----------------------------------------------------------
+  # ECS Cluster
+  # -----------------------------------------------------------
+  FrontendCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-cluster-front
 
   # -----------------------------------------------------------
   # Application Load Balancer
@@ -88,6 +102,11 @@ Resources:
           Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
           PortMappings:
             - ContainerPort: 80
+          Environment:
+            - Name: API_URL
+              Value: !Ref APIURL
+            - Name: API_KEY
+              Value: !Ref APIKEY
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -96,14 +115,14 @@ Resources:
               awslogs-stream-prefix: crumblr-frontend
 
   # -----------------------------------------------------------
-  # Service
+  # ECS Service
   # -----------------------------------------------------------
   FrontendService:
     Type: AWS::ECS::Service
     DependsOn:
       - FrontendListener
     Properties:
-      Cluster: crumblr-cluster
+      Cluster: !Ref FrontendCluster
       ServiceName: crumblr-frontend-service
       TaskDefinition: !Ref FrontendTaskDefinition
       DesiredCount: 1
@@ -118,7 +137,6 @@ Resources:
         - ContainerName: crumblr-frontend
           ContainerPort: 80
           TargetGroupArn: !Ref FrontendTargetGroup
-
 
 Outputs:
   FrontendURL:
