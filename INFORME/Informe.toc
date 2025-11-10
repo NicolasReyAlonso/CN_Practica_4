@@ -1,5 +1,54 @@
 \babel@toc {spanish}{}\relax 
-\contentsline {section}{\numberline {1}Introducción}{3}{section.1}%
-\contentsline {section}{\numberline {2}Trabajo realizado: Desacoplado}{3}{section.2}%
-\contentsline {section}{\numberline {3}Trabajo en progreso: Acoplado}{3}{section.3}%
-\contentsline {section}{\numberline {4}Conclusiones}{3}{section.4}%
+\contentsline {section}{\numberline {1}Introducción}{4}{section.1}%
+\contentsline {section}{\numberline {2}Acoplado}{5}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Diagrama de arquitectura}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Explicación de los templates de CloudFormation}{7}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}Repositorios de imágenes}{7}{subsubsection.2.2.1}%
+\contentsline {paragraph}{\numberline {2.2.1.1}ecr.yml - Repositorio ECR para Crumblr}{7}{paragraph.2.2.1.1}%
+\contentsline {paragraph}{\numberline {2.2.1.2}Crumb-ecr-gui.yaml - Repositorio ECR para Crumblr Frontend}{8}{paragraph.2.2.1.2}%
+\contentsline {subsubsection}{\numberline {2.2.2}Bases de datos}{10}{subsubsection.2.2.2}%
+\contentsline {paragraph}{\numberline {2.2.2.1}db-postgres.yml - Base de datos PostgreSQL para Crumblr (Amazon RDS)}{10}{paragraph.2.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.2.3}ECS Fargate}{13}{subsubsection.2.2.3}%
+\contentsline {paragraph}{\numberline {2.2.3.1}main.yml - Despliegue del backend}{13}{paragraph.2.2.3.1}%
+\contentsline {paragraph}{\numberline {2.2.3.2}frontEC2Cluster.yml - Despliegue del Frontend}{17}{paragraph.2.2.3.2}%
+\contentsline {subsection}{\numberline {2.3}Código}{21}{subsection.2.3}%
+\contentsline {subsubsection}{\numberline {2.3.1}Código backend}{21}{subsubsection.2.3.1}%
+\contentsline {paragraph}{\numberline {2.3.1.1}db.py}{21}{paragraph.2.3.1.1}%
+\contentsline {paragraph}{\numberline {2.3.1.2}factory.py}{21}{paragraph.2.3.1.2}%
+\contentsline {paragraph}{\numberline {2.3.1.3}postgres-db.py}{22}{paragraph.2.3.1.3}%
+\contentsline {paragraph}{\numberline {2.3.1.4}crumb.py}{24}{paragraph.2.3.1.4}%
+\contentsline {paragraph}{\numberline {2.3.1.5}main.py}{24}{paragraph.2.3.1.5}%
+\contentsline {subsubsection}{\numberline {2.3.2}Dockerfile}{27}{subsubsection.2.3.2}%
+\contentsline {section}{\numberline {3}FrontEnd}{28}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Código}{28}{subsection.3.1}%
+\contentsline {subsubsection}{\numberline {3.1.1}app.js}{28}{subsubsection.3.1.1}%
+\contentsline {subsubsection}{\numberline {3.1.2}index.html}{30}{subsubsection.3.1.2}%
+\contentsline {subsubsection}{\numberline {3.1.3}style.css}{31}{subsubsection.3.1.3}%
+\contentsline {subsection}{\numberline {3.2}dockerfile}{32}{subsection.3.2}%
+\contentsline {section}{\numberline {4}Desacoplado}{33}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Diagrama de arquitectura}{34}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Explicación de los templates de CloudFormation}{34}{subsection.4.2}%
+\contentsline {subsubsection}{\numberline {4.2.1}ECR}{34}{subsubsection.4.2.1}%
+\contentsline {paragraph}{\numberline {4.2.1.1}BUILDSLLECR.yml - Repositorios ECR para las Lambdas de Crumblr}{34}{paragraph.4.2.1.1}%
+\contentsline {paragraph}{\numberline {4.2.1.2}Crumblr-ecr-gui - Repositorio ECR para el Frontend de Crumblr}{37}{paragraph.4.2.1.2}%
+\contentsline {subsubsection}{\numberline {4.2.2}Bases de datos}{37}{subsubsection.4.2.2}%
+\contentsline {paragraph}{\numberline {4.2.2.1}db-postgres}{37}{paragraph.4.2.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.3}Lanzamineto de Aplicación}{37}{subsubsection.4.2.3}%
+\contentsline {paragraph}{\numberline {4.2.3.1}main.yml - Despliegue del Backend de Crumblr}{37}{paragraph.4.2.3.1}%
+\contentsline {subparagraph}{Explicación general:}{39}{section*.2}%
+\contentsline {paragraph}{\numberline {4.2.3.2}frontEC2Cluster.yml - Despliegue del Frontend}{39}{paragraph.4.2.3.2}%
+\contentsline {subsection}{\numberline {4.3}Código}{40}{subsection.4.3}%
+\contentsline {subsubsection}{\numberline {4.3.1}Handlers}{40}{subsubsection.4.3.1}%
+\contentsline {subsubsection}{\numberline {4.3.2}Shared}{46}{subsubsection.4.3.2}%
+\contentsline {paragraph}{\numberline {4.3.2.1}crumb.py}{46}{paragraph.4.3.2.1}%
+\contentsline {paragraph}{\numberline {4.3.2.2}shared/*.py}{46}{paragraph.4.3.2.2}%
+\contentsline {paragraph}{\numberline {4.3.2.3}shared/crumb-service}{46}{paragraph.4.3.2.3}%
+\contentsline {subsubsection}{\numberline {4.3.3}dockerfile}{47}{subsubsection.4.3.3}%
+\contentsline {section}{\numberline {5}Presupuestos}{49}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Costo acoplado}{49}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Costo desacoplado}{49}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}Costo Frontend}{49}{subsection.5.3}%
+\contentsline {subsection}{\numberline {5.4}Resumen de costos totales}{50}{subsection.5.4}%
+\contentsline {section}{\numberline {6}Conclusiones}{51}{section.6}%
+\contentsline {section}{\numberline {7}Uso de la IA}{51}{section.7}%
+\contentsline {section}{\numberline {8}github}{51}{section.8}%

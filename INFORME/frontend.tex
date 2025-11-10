@@ -1,0 +1,263 @@
+
+\lstdefinelanguage{JavaScript}{
+    keywords={break, case, catch, class, const, continue, debugger, default, delete, do, else, export, extends, finally, for, function, if, import, in, instanceof, let, new, return, super, switch, this, throw, try, typeof, var, void, while, with, yield, async, await},
+    ndkeywords={true,false,null,undefined,NaN,Infinity},
+    sensitive=true,
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    string=[b]",
+    morestring=[b]',
+    morestring=[b]`,
+    showstringspaces=false,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    ndkeywordstyle=\color{orange}\bfseries,
+    stringstyle=\color{teal},
+    commentstyle=\color{gray}\itshape,
+    numberstyle=\tiny\color{gray},
+    numbers=left,
+    stepnumber=1,
+    numbersep=5pt,
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=2,
+    frame=single,
+    captionpos=b
+}
+\lstdefinelanguage{CSS}{
+    keywords={color, background, margin, padding, font-size, font-family, display, position, top, left, right, bottom, border, width, height, text-align, justify-content, align-items},
+    sensitive=true,
+    comment=[s]{/*}{*/},
+    morestring=[b]",
+    morestring=[b]',
+}
+
+
+\section{FrontEnd}
+El frontend de crumblr lo cree con ayuda de chatgpt en html y js con despliegue alpine en docker. Cabe destacar que el frontend es el mismo para la versión acoplada y desacoplada ya que me ahorraba tiempo y no podía crear más lambdas.
+
+El código del frontend es el siguiente:
+\subsection{Código}
+\subsubsection{app.js}
+
+Código JavaScript de la aplicación frontend que se comunica con la API de Crumblr para CRUD de crumbs.
+
+\begin{lstlisting}[language=JavaScript, caption={Frontend JS para Crumbs}, label={lst:frontend_js}]
+const API_URL = "https://v4vbkmeftj.execute-api.us-east-1.amazonaws.com/prod/crumbs";
+const API_KEY = "x3SV9yBfwuWJ3M3NyT3E541ykzkEWdN9jrMj40ah";
+
+async function fetchCrumbs() {
+  const res = await fetch(API_URL, {
+    headers: { "x-api-key": API_KEY }
+  });
+
+  if (!res.ok) {
+    alert("Error al obtener los crumbs");
+    return;
+  }
+
+  const data = await res.json();
+  const list = document.getElementById("crumbs-list");
+  list.innerHTML = "";
+
+  data.forEach(crumb => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div id="crumb-${crumb.crumb_id}">
+        <p class="content">${crumb.content}</p>
+        ${crumb.image_url ? `<img src="${crumb.image_url}" alt="Crumb image">` : ""}
+        <small>${new Date(crumb.created_at).toLocaleString()}</small>
+      </div>
+      <button onclick="editCrumb('${crumb.crumb_id}', '${crumb.content.replace(/'/g, "\\'")}', '${crumb.image_url || ""}')"></button>
+      <button onclick="deleteCrumb('${crumb.crumb_id}')"></button>
+    `;
+    list.appendChild(li);
+  });
+}
+
+async function createCrumb(e) {
+  e.preventDefault();
+  const content = document.getElementById("content").value.trim();
+  const image_url = document.getElementById("image_url").value.trim();
+
+  if (!content) return alert("El contenido no puede estar vacío");
+
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY
+    },
+    body: JSON.stringify({ content, image_url })
+  });
+
+  if (res.ok) {
+    document.getElementById("create-form").reset();
+    fetchCrumbs();
+  } else {
+    alert("Error al crear el crumb");
+  }
+}
+
+async function deleteCrumb(id) {
+  const res = await fetch(`${API_URL}/${id}`, {
+    method: "DELETE",
+    headers: { "x-api-key": API_KEY }
+  });
+
+  if (res.ok) fetchCrumbs();
+  else alert("Error al eliminar el crumb");
+}
+
+function editCrumb(id, currentContent, currentImage) {
+  const newContent = prompt("Editá el contenido del crumb:", currentContent);
+  if (newContent === null) return;
+
+  const newImage = prompt("Editá la URL de imagen (o dejá vacío):", currentImage);
+  updateCrumb(id, newContent, newImage);
+}
+
+async function updateCrumb(id, content, image_url) {
+  const res = await fetch(`${API_URL}/${id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY
+    },
+    body: JSON.stringify({ content, image_url })
+  });
+
+  if (res.ok) {
+    fetchCrumbs();
+  } else {
+    alert("Error al actualizar el crumb");
+  }
+}
+
+document.getElementById("create-form").addEventListener("submit", createCrumb);
+fetchCrumbs();
+\end{lstlisting}
+
+Un detalle importante es que a la hora de lanzar este código es necesario cambiar la URL de la API y la API KEY por las correspondientes a la implementación del backend.
+A pesar de haber implementado apiurl y apikey en el yaml del frontend, no conseguí cargarlos correctamente y decidí dejarlos hardcodeados para llegar a la entrega.
+
+\subsubsection{index.html}
+
+\begin{lstlisting}[language=HTML, caption={Interfaz web de Crumblr}, label={lst:index_html}]
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Crumblr</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Crumblr</h1>
+
+  <section id="create">
+    <h2>Nuevo Crumb</h2>
+    <form id="create-form">
+      <textarea id="content" placeholder="Que estas pensando?" required></textarea>
+      <input type="text" id="image_url" placeholder="URL de imagen (opcional)">
+      <button type="submit">Publicar</button>
+    </form>
+  </section>
+
+  <section id="list">
+    <h2>Crumbs recientes</h2>
+    <ul id="crumbs-list"></ul>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
+\end{lstlisting}
+
+\subsubsection{style.css}
+\begin{lstlisting}[language=CSS, caption={Estilos CSS para Crumblr}, label={lst:style_css}]
+    body {
+  font-family: system-ui, sans-serif;
+  background: #fafafa;
+  color: #333;
+  padding: 2rem;
+  max-width: 600px;
+  margin: auto;
+}
+
+h1 {
+  text-align: center;
+  color: #222;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+}
+
+textarea, input, button {
+  padding: 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+
+button {
+  background: #ffb703;
+  color: #222;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #fb8500;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  background: white;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+li img {
+  max-width: 100%;
+  border-radius: 10px;
+  margin-top: 0.5rem;
+}
+
+small {
+  color: #888;
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+}
+\end{lstlisting}
+
+\subsection{dockerfile}
+De nuevo, intento mantenerlo simple con alpine.
+
+\begin{lstlisting}[language=Dockerfile, caption={Dockerfile para Frontend}]
+FROM nginx:stable-alpine
+
+RUN rm -rf /usr/share/nginx/html/*
+
+COPY . /usr/share/nginx/html
+
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+\end{lstlisting}

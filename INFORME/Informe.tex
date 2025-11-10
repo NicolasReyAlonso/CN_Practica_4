@@ -1,59 +1,59 @@
 \documentclass[12pt,a4paper]{article}
-\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float}
 \usepackage[spanish]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
 \usepackage{geometry}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{tabularx} 
+\usepackage{array} 
 
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
 \geometry{margin=2.5cm}
 
-\title{Ejercicio entregable\\Computación en la Nube}
+
+\title{Ejercicio entregable 1\\Computación en la Nube}
 \author{Nicolás Rey Alonso}
 \date{\today}
+
+\lstset{literate=%
+  {á}{{\'a}}1
+  {é}{{\'e}}1
+  {í}{{\'i}}1
+  {ó}{{\'o}}1
+  {ú}{{\'u}}1
+  {ñ}{{\~n}}1
+}
 
 \begin{document}
 
 \maketitle
 
 \include{index}
-\include{acoplado}
+
 
 \section{Introducción}
 En este informe se detallan las actividades realizadas, centradas en el despliegue de infraestructura y servicios en AWS mediante 
 \textbf{CloudFormation}. Se describen los trabajos tanto de manera desacoplada como el trabajo en curso de integración/acoplamiento.
 
-\section{Trabajo realizado: Desacoplado}
-
-Se han creado varias plantillas YAML para desplegar de manera independiente los componentes del proyecto \textit{Crumblr}, separando frontend y backend:
-
-\begin{itemize}
-    \item \textbf{Repositorios de imágenes:} Dos plantillas YAML para la creación de los repositorios en Amazon ECR, uno para el frontend y otro para el backend.
-    \item \textbf{Backend:} Una plantilla YAML que despliega un \textbf{ECS cluster} con la \textbf{task definition} correspondiente al backend, incluyendo la configuración de API Gateway para exponer los endpoints de la aplicación.
-    \item \textbf{Frontend:} Una plantilla YAML que despliega un \textbf{ECS cluster} para el frontend, configurando el \textbf{Application Load Balancer} y el security group necesario.
-\end{itemize}
-
-Estas configuraciones permiten que cada componente funcione de manera autónoma y puedan probarse independientemente.
-
-\section{Trabajo en progreso: Acoplado}
-
-Actualmente se está trabajando en la integración de los servicios frontend y backend, buscando que ambos puedan comunicarse correctamente mediante la API creada. Este paso incluye:
-
-\begin{itemize}
-    \item Configuración de las variables de entorno en las task definitions para que el frontend pueda acceder a la API del backend.
-    \item Ajustes de CORS en API Gateway para permitir peticiones desde el dominio del frontend.
-    \item Pruebas de comunicación y validación del flujo completo de creación, lectura, actualización y eliminación de ``crumbs`` desde la interfaz del frontend.
-\end{itemize}
-
+\include{acopladoArquitectura}
+\include{acopladoCodigo}
+\include{frontend}
+\include{desacopladoArquitectura}
+\include{desacopladoCodigo}
+\include{presupuestos}
 \section{Conclusiones}
+Para la aplicación Crumblr, la arquitectura desacoplada basada en AWS Lambda y API Gateway ofrece varias ventajas significativas sobre una arquitectura acoplada tradicional utilizando ECS Fargate. En primer lugar, el modelo desacoplado permite una mayor escalabilidad y flexibilidad, ya que cada función Lambda puede escalar de forma independiente según la demanda, lo que resulta en un uso más eficiente de los recursos y potencialmente menores costos operativos. Además, la gestión de la infraestructura se simplifica considerablemente, ya que AWS se encarga del aprovisionamiento y mantenimiento de las funciones Lambda, reduciendo la carga administrativa.
+Sin embargo, esta arquitectura también presenta desafíos, como la complejidad añadida en la gestión de múltiples funciones y la necesidad de diseñar cuidadosamente las interacciones entre ellas para evitar latencias innecesarias. Además, las limitaciones inherentes a Lambda, como el tiempo máximo de ejecución y el tamaño del paquete de despliegue, pueden restringir ciertos casos de uso.
+En resumen, la elección entre una arquitectura desacoplada y una acoplada dependerá de las necesidades específicas del proyecto, considerando factores como la escalabilidad, la complejidad operativa y los costos asociados.
 
-Hasta ahora se ha logrado:
-\begin{itemize}
-    \item Desplegar de manera independiente los componentes del proyecto en AWS utilizando CloudFormation.
-    \item Configurar backend y frontend en ECS Fargate con sus respectivos load balancers.
-    \item Probar la comunicación básica entre frontend y backend mediante API Gateway.
-\end{itemize}
+\section{Uso de la IA}
+El uso de herramientas de inteligencia artificial, como ChatGPT, ha sido fundamental en la elaboración de este informe y en el desarrollo del código asociado. Estas herramientas han facilitado la generación de fragmentos de código, la redacción de secciones del informe y la resolución de dudas técnicas, permitiendo un enfoque más eficiente y productivo en el trabajo realizado. Sin embargo, es importante destacar que la infraestructura y la lógica del proyecto han sido diseñadas por mí.
 
-El siguiente paso será completar la integración completa (acoplamiento) y asegurar que la aplicación funcione de manera coherente como un sistema completo.
-
+\section{github}
+El código fuente completo del proyecto está disponible en el siguiente repositorio de GitHub: \url{https://github.com/NicolasReyAlonso/CN_Practica_4.git}.
 \end{document}

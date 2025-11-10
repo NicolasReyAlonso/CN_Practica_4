@@ -1,0 +1,82 @@
+\section{Presupuestos}
+Los presupuestos para la implementación de la arquitectura desacoplada de Crumblr se dividen en varias categorías:
+\begin{itemize}
+\item \textbf{Costos de frontend:}
+\item \textbf{Costos de backend acoplado:} 
+\item \textbf{Costos de backend desacoplado:}
+\end{itemize}
+
+\subsection{Costo acoplado}
+\begin{table}[h!]
+\centering
+\small
+\caption{Precios estimados de AWS para los servicios usados en Crumblr (us-east-1)}
+\label{tab:aws_prices}
+\begin{tabularx}{\textwidth}{|l|l|l|X|} 
+\hline
+\textbf{Servicio} & \textbf{Parámetro} & \textbf{Precio} & \textbf{Notas} \\ \hline
+ECR & 1 GB/mes & \$0.10/GB-mes & No incluye transferencias fuera de región. \\ \hline
+Fargate & 1 vCPU + 2 GB/h & \$0.04/vCPU-h + \$0.0044/GB-h & Task 0.25 vCPU y 0.5 GB: \$0.011/h. \\ \hline
+RDS PostgreSQL & db.t3.micro & \$0.0410/h (db.m5.xlarge) & Depende de instancia, almacenamiento, Multi-AZ y backups. \\ \hline
+\end{tabularx}
+\end{table}
+
+\textbf{Costo mensual estimado: 37.54 USD}
+
+\textbf{Costo anual estimado: 450.48 USD}
+
+\subsection{Costo desacoplado}
+\begin{table}[h!]
+\centering
+\small
+\caption{Precios estimados de AWS para Crumblr (us-east-1)}
+\label{tab:aws_prices_lambda}
+\begin{tabularx}{\textwidth}{|l|l|l|X|}
+\hline
+\textbf{Servicio} & \textbf{Parámetro} & \textbf{Precio} & \textbf{Notas} \\ \hline
+Lambda & 512 MB, 1M invoc./mes & 0.12 USD & Basado en uso típico. \\ \hline
+API Gateway REST & 1M llamadas/mes & 3.50 USD & Precio base por millón de llamadas. \\ \hline
+ECR & 1 GB & 0.10 USD & Solo almacenamiento. \\ \hline
+RDS PostgreSQL & db.t3.micro, 20 GB & 29 USD & On-Demand + almacenamiento. \\ \hline
+\end{tabularx}
+\end{table}
+
+\textbf{Costo mensual estimado: 32.72 USD}
+
+\textbf{Costo anual estimado: 392.64 USD}
+
+\subsection{Costo Frontend}
+\begin{table}[h!]
+\centering
+\small
+\caption{Precios estimados de AWS para el frontend de Crumblr (us-east-1)}
+\label{tab:aws_prices_frontend}
+\begin{tabularx}{\textwidth}{|l|l|l|X|}
+\hline
+\textbf{Servicio} & \textbf{Parámetro} & \textbf{Precio} & \textbf{Notas} \\ \hline
+Fargate & 0.25 vCPU + 0.5 GB, 1 h & 0.011 USD & Task única, por hora. \\ \hline
+ALB & 1 ALB + 1M LCU-mes & 18 USD & LCU = Load Balancer Capacity Units. \\ \hline
+ECR & 1 GB & 0.10 USD & Solo almacenamiento. \\ \hline
+CloudWatch Logs & 14 días retención & 0.50 USD & Logs de contenedor. \\ \hline
+\end{tabularx}
+\end{table}
+
+\textbf{Costo mensual estimado: 18.61 USD}
+
+\textbf{Costo anual estimado: 223.32 USD}
+
+\subsection{Resumen de costos totales}
+\begin{table}[h!]
+\centering
+\caption{Resumen de costos anuales por arquitectura}
+\label{tab:resumen_costos}
+\begin{tabular}{|l|r|r|}
+\hline
+\textbf{Arquitectura} & \textbf{Costo Mensual} & \textbf{Costo Anual} \\ \hline
+Backend Acoplado & 37.54 USD & 450.48 USD \\ \hline
+Backend Desacoplado & 32.72 USD & 392.64 USD \\ \hline
+Frontend & 18.61 USD & 223.32 USD \\ \hline
+\textbf{Total Acoplado + Frontend} & \textbf{56.15 USD} & \textbf{673.80 USD} \\ \hline
+\textbf{Total Desacoplado + Frontend} & \textbf{51.33 USD} & \textbf{615.96 USD} \\ \hline
+\end{tabular}
+\end{table}

@@ -1,0 +1,348 @@
+
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red},
+    commentstyle=\color{gray},
+    breaklines=true,
+    showstringspaces=false
+}
+\lstdefinelanguage{dockerfile}{
+  keywords={FROM, RUN, CMD, LABEL, EXPOSE, ENV, ADD, COPY, ENTRYPOINT, VOLUME, USER, WORKDIR, ARG, ONBUILD, STOPSIGNAL, HEALTHCHECK, SHELL},
+  keywordstyle=\color{blue}\bfseries,
+  comment=[l]{\#},
+  commentstyle=\color{gray}\itshape,
+  stringstyle=\color{red},
+  morestring=[b]',
+  morestring=[b]",
+  basicstyle=\ttfamily\small,
+  sensitive=true
+}
+
+
+\subsection{Código}
+\subsubsection{Código backend}
+El código del backend decidí mantenerlo con flask por comodidad y porque gran parte de la arquitectura del código ya estaba hecha.
+Los principales cambios que realicé se basan en diverger de la implementación original con tickets para adaptarla a Crumbs.
+\paragraph{db.py}
+\label{sec:SharedCodeDB}.
+Define la clase abstracta \texttt{Database} que establece los métodos que deben implementar todas las clases de acceso a datos de Crumblr.
+Se mantiene la misma estructura que en la implementación original con tickets, adaptando los nombres y tipos de datos a los de Crumbs.
+
+\begin{lstlisting}[language=Python, caption={Interfaz de base de datos de Crumblr}, label={lst:database}]
+from abc import ABC, abstractmethod
+from typing import List, Optional
+from models.crumb import Crumb
+
+class Database(ABC):
+    
+    @abstractmethod
+    def initialize(self):
+        pass
+    
+    @abstractmethod
+    def create_crumb(self, crumb: Crumb) -> Crumb:
+        pass
+    
+    @abstractmethod
+    def get_crumb(self, crumb_id: str) -> Optional[Crumb]:
+        pass
+    
+    @abstractmethod
+    def get_all_crumbs(self) -> List[Crumb]:
+        pass
+    
+    @abstractmethod
+    def update_crumb(self, crumb_id: str, crumb: Crumb) -> Optional[Crumb]:
+        pass
+    
+    @abstractmethod
+    def delete_crumb(self, crumb_id: str) -> bool:
+        pass
+\end{lstlisting}
+
+\paragraph{factory.py}
+\label{sec:SharedCodeFactory}
+Implementa la clase \texttt{DatabaseFactory}, que permite crear instancias de distintas implementaciones de \texttt{Database} de forma dinámica.
+
+\begin{lstlisting}[language=Python, caption={Fábrica de bases de datos de Crumblr}, label={lst:database_factory}]
+import os
+from typing import Dict, Type
+from .db import Database
+from .postgres_db import PostgresDatabase
+
+
+class DatabaseFactory:
+    
+    _databases: Dict[str, Type[Database]] = {
+        'postgres': PostgresDatabase
+    }
+    
+    @classmethod
+    def create(cls, db_type: str = None) -> Database:
+        if db_type is None:
+            db_type = os.getenv('DB_TYPE', 'postgres')
+        
+        db_type = db_type.lower()
+        
+        database_class = cls._databases.get(db_type)
+        
+        if database_class is None:
+            available = ', '.join(cls._databases.keys())
+            raise ValueError(
+                f"DB_TYPE '{db_type}' no valido. "
+                f"Opciones disponibles: {available}"
+            )
+        return database_class()
+    
+    @classmethod
+    def get_available_databases(cls) -> list:
+        return list(cls._databases.keys())
+\end{lstlisting}
+
+\paragraph{postgres-db.py}
+\label{sec:SharedCodePostgres}.
+Implementa la clase \texttt{PostgresDatabase}, que hereda de \texttt{Database} y gestiona la persistencia de los \textit{crumbs} en PostgreSQL.
+
+\begin{lstlisting}[language=Python, caption={Implementación PostgreSQL de la base de datos Crumblr}, label={lst:postgres_db}]
+import psycopg2
+import psycopg2.extras
+import json
+from typing import List, Optional
+from .db import Database
+from models.crumb import Crumb
+import os
+
+class PostgresDatabase(Database):
+    
+    def __init__(self):
+        self.connection = psycopg2.connect(
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('DB_PASS'),
+            database=os.getenv('DB_NAME')
+        )
+        self.connection.autocommit = True
+        self.initialize()
+    
+    def initialize(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS crumbs (
+                    crumb_id VARCHAR(36) PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    image_url TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+    def create_crumb(self, crumb: Crumb) -> Crumb:
+        with self.connection.cursor() as cursor:
+            sql = """
+                INSERT INTO crumbs (crumb_id, content, image_url, created_at)
+                VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(sql, (crumb.crumb_id, crumb.content, crumb.image_url, crumb.created_at))
+        return crumb
+
+
+    def get_crumb(self, crumb_id: str) -> Optional[Crumb]:
+        with self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+            sql = "SELECT * FROM crumbs WHERE crumb_id = %s"
+            cursor.execute(sql, (crumb_id,))
+            result = cursor.fetchone()
+            if result:
+                result = dict(result)
+                result['created_at'] = (
+                    result['created_at'].isoformat() if result['created_at'] else None
+                )
+                return Crumb(**result)
+        return None
+
+    
+    def get_all_crumbs(self):
+        with self.connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+            sql = "SELECT * FROM crumbs ORDER BY created_at DESC"
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            return [Crumb(**row) for row in results]
+
+    
+    def update_crumb(self, crumb_id: str, crumb: Crumb) -> Optional[Crumb]:
+        with self.connection.cursor() as cursor:
+            sql = """
+                UPDATE crumbs
+                SET content = %s,
+                    image_url = %s,
+                    created_at = created_at
+                WHERE crumb_id = %s
+            """
+            cursor.execute(sql, (crumb.content, crumb.image_url, crumb_id))
+            if cursor.rowcount > 0:
+                return self.get_crumb(crumb_id)
+        return None
+
+    def delete_crumb(self, crumb_id: str) -> bool:
+        with self.connection.cursor() as cursor:
+            sql = "DELETE FROM crumbs WHERE crumb_id = %s"
+            cursor.execute(sql, (crumb_id,))
+            return cursor.rowcount > 0
+\end{lstlisting}
+
+\paragraph{crumb.py}
+\label{sec:ModelDB}
+
+Define la clase \texttt{Crumb}, que representa un “crumb” en la aplicación Crumblr.
+
+\begin{lstlisting}[language=Python, caption={Modelo de Crumb en la aplicación Crumblr}, label={lst:crumb_model}]
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Literal
+from datetime import datetime
+import uuid
+
+class Crumb:
+    def __init__(self, crumb_id=None, content='', image_url=None, created_at=None):
+        self.crumb_id = crumb_id or str(uuid.uuid4())
+        self.content = content
+        self.image_url = image_url
+        self.created_at = created_at or datetime.utcnow()
+\end{lstlisting}
+
+\paragraph{main.py}
+
+Implementa la aplicación Flask de Crumblr, con rutas para CRUD de \textit{crumbs}, manejo de errores y CORS.
+
+\begin{lstlisting}[language=Python, caption={Aplicación Flask para Crumblr — CRUD y Healthcheck}, label={lst:app_flask}]
+from flask import Flask, request, jsonify
+from pydantic import ValidationError
+import psycopg2
+from models.crumb import Crumb
+from db.factory import DatabaseFactory
+
+app = Flask(__name__)
+
+# Inicializar base de datos
+try:
+    db = DatabaseFactory.create()
+except ValueError as e:
+    raise RuntimeError(f"Error initializing DB: {e}") from e
+
+
+# Middleware CORS
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,PUT,DELETE,OPTIONS'
+    return response
+
+
+# Crear un nuevo crumb
+@app.route('/crumbs', methods=['POST'])
+def create_crumb():
+    try:
+        data = request.get_json()
+        crumb = Crumb(**data)
+        created = db.create_crumb(crumb)
+        return jsonify(created.__dict__), 201
+    except ValidationError as e:
+        return jsonify({'error': 'Validation error', 'details': e.errors()}), 400
+    except psycopg2.IntegrityError as e:
+        return jsonify({'error': 'Database integrity error', 'details': str(e)}), 409
+    except psycopg2.OperationalError as e:
+        return jsonify({'error': 'Database connection error', 'details': str(e)}), 503
+    except psycopg2.Error as e:
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
+
+
+# Obtener un crumb por ID
+@app.route('/crumbs/<crumb_id>', methods=['GET'])
+def get_crumb(crumb_id):
+    try:
+        crumb = db.get_crumb(crumb_id)
+        if crumb:
+            return jsonify(crumb.__dict__), 200
+        return jsonify({'error': 'Crumb not found'}), 404
+    except psycopg2.OperationalError as e:
+        return jsonify({'error': 'Database connection error', 'details': str(e)}), 503
+    except psycopg2.Error as e:
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
+
+
+# Obtener todos los crumbs
+@app.route('/crumbs', methods=['GET'])
+def get_all_crumbs():
+    try:
+        crumbs = db.get_all_crumbs()
+        return jsonify([c.__dict__ for c in crumbs]), 200
+    except psycopg2.OperationalError as e:
+        return jsonify({'error': 'Database connection error', 'details': str(e)}), 503
+    except psycopg2.Error as e:
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
+
+
+# Actualizar un crumb
+@app.route('/crumbs/<crumb_id>', methods=['PUT'])
+def update_crumb(crumb_id):
+    try:
+        data = request.get_json()
+        data.pop('crumb_id', None)
+        data.pop('created_at', None)
+        crumb = Crumb(**data)
+        updated = db.update_crumb(crumb_id, crumb)
+        if updated:
+            return jsonify(updated.__dict__), 200
+        return jsonify({'error': 'Crumb not found'}), 404
+    except ValidationError as e:
+        return jsonify({'error': 'Validation error', 'details': e.errors()}), 400
+    except psycopg2.IntegrityError as e:
+        return jsonify({'error': 'Database integrity error', 'details': str(e)}), 409
+    except psycopg2.OperationalError as e:
+        return jsonify({'error': 'Database connection error', 'details': str(e)}), 503
+    except psycopg2.Error as e:
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
+
+
+# Eliminar un crumb
+@app.route('/crumbs/<crumb_id>', methods=['DELETE'])
+def delete_crumb(crumb_id):
+    try:
+        if db.delete_crumb(crumb_id):
+            return '', 204
+        return jsonify({'error': 'Crumb not found'}), 404
+    except psycopg2.OperationalError as e:
+        return jsonify({'error': 'Database connection error', 'details': str(e)}), 503
+    except psycopg2.Error as e:
+        return jsonify({'error': 'Database error', 'details': str(e)}), 500
+
+
+# Healthcheck
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'healthy'}), 200
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
+\end{lstlisting}
+
+\subsubsection{Dockerfile}
+El dockerfile se mantiene idéntico al original con tickets.
+
+\begin{lstlisting}[language=Dockerfile, caption={Dockerfile para el backend de Crumblr}, label={lst:dockerfile}]
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY Crumblr-Back/ .
+
+EXPOSE 8080
+
+CMD ["python", "main.py"]
+\end{lstlisting}
+
+

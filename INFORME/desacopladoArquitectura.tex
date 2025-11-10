@@ -1,0 +1,272 @@
+\section{Desacoplado}
+
+Modelo de integración de los servicios de backend de forma desacoplada. Para hacer esto cree un nuevo \textit{main.yml} que define una serie de lambdas a las cuales se lanza mediante eventos generados por la \textit{API Gateway}.
+
+El frontend se mantiene exacto al definido en: \ref{sec:FrontendCloudFormation}
+
+Las tareas que se realizan son las siguientes:
+
+\begin{itemize}
+    \item Lanzamiento de los repositorios ECR para las lambdas.
+    \item Subida de las imágenes docker de las lambdas a los repositorios ECR (codigo modificado en \ref{sec:BackendCloudFormation}).
+    \item Despliegue de la base de datos RDS PostgreSQL.
+    \item Configuración de las Lambdas y sus respectivos permisos.
+    \item Definición de la API Gateway para enrutar las peticiones HTTP a las Lambdas correspondientes.
+    \item Ajustes de CORS en API Gateway para permitir peticiones desde el dominio del frontend.
+    \item Lanzamiento del frontend.
+\end{itemize}
+
+\subsection{Diagrama de arquitectura}
+\begin{figure}[H] % el [H] fuerza que la imagen se quede "aquí"
+  \centering
+  \includegraphics[width=0.8\textheight, keepaspectratio]{../crumblr_architecture_decoupled.png}
+  \caption{Diagrama de la arquitectura de Crumblr}
+  \label{fig:arquitectura-crumblr-desacoplado}
+\end{figure}
+
+\subsection{Explicación de los templates de CloudFormation}
+\subsubsection{ECR}
+\paragraph{BUILDSLLECR.yml - Repositorios ECR para las Lambdas de Crumblr}
+
+Debido al aumento del número de ECR y la complejidad de sincronización del código, se eliminó la mayor parte de opciones de personalización del YAML para evitar problemas. Este YAML define los repositorios ECR que serán utilizados por las funciones Lambda de Crumblr, cada uno con su política de ciclo de vida para mantener solo las últimas dos imágenes.
+
+\begin{lstlisting}[language=yaml, caption={Repositorios ECR para las Lambdas de Crumblr}, label={lst:ecr_lambdas_desacoplado}]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr Lambda Repositories"
+
+Resources:
+  ECRRepository1:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: get-crumbs
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+  ECRRepository2:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: get-crumb
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+  ECRRepository3:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: delete-crumb
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+  ECRRepository4:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: update-crumb
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+  ECRRepository5:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: create-crumb
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+\end{lstlisting}
+
+\paragraph{Crumblr-ecr-gui - Repositorio ECR para el Frontend de Crumblr}
+Ya descrito en: \ref{sec:FrontendECR}.
+
+\subsubsection{Bases de datos}
+\paragraph{db-postgres}
+Se mantiene la misma que en el acoplado, explicado en la sección: \ref{sec:DBCloudFormation}.
+
+\subsubsection{Lanzamineto de Aplicación}
+\paragraph{main.yml - Despliegue del Backend de Crumblr}
+Esta plantilla define la infraestructura de Crumblr en AWS, incluyendo funciones Lambda, API Gateway, PostgreSQL, CORS y CloudWatch Logs.
+
+\begin{lstlisting}[language=yaml, caption={Infraestructura de Crumblr: Lambdas, API Gateway y bases de datos}, label={lst:cloudformation_lambdas}]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr -> AWS Lambda + API Gateway + PostgreSQL/DynamoDB with CORS and CloudWatch Logs"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Target VPC
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least 2 subnets in different AZs
+  DBType:
+    Type: String
+    Default: postgres
+    AllowedValues:
+      - postgres
+      - dynamodb
+  DBHost:
+    Type: String
+    Default: ""
+    Description: "DB Host (only used for PostgreSQL)"
+  DBName:
+    Type: String
+    Default: "crumblr_db"
+  DBUser:
+    Type: String
+    Default: "postgres"
+  DBPass:
+    Type: String
+    NoEcho: true
+    Default: "Nicololo"
+  DBDynamoName:
+    Type: String
+    Default: "crumbs"
+
+Resources:
+  # Funciones Lambda
+  CreateCrumbLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: create-crumb
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-crumb:latest"
+      Environment:
+        Variables:
+          DB_TYPE: !Ref DBType
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBName
+          DB_USER: !Ref DBUser
+          DB_PASS: !Ref DBPass
+          DB_DYNAMONAME: !Ref DBDynamoName
+  GetCrumbLambda: {}
+  GetCrumbsLambda: {}
+  UpdateCrumbLambda: {}
+  DeleteCrumbLambda: {}
+
+  # Logs en CloudWatch
+  CreateCrumbLogGroup: {}
+  GetCrumbLogGroup: {}
+  GetCrumbsLogGroup: {}
+  UpdateCrumbLogGroup: {}
+  DeleteCrumbLogGroup: {}
+
+  # API Gateway
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: crumblr-api
+
+  CrumbsResource:
+    Type: AWS::ApiGateway::Resource
+  CrumbResource:
+    Type: AWS::ApiGateway::Resource
+
+  # Métodos API y permisos Lambda
+  PostCrumbs: {}
+  GetCrumbs: {}
+  GetCrumb: {}
+  PutCrumb: {}
+  DeleteCrumb: {}
+  OptionsCrumbs: {}
+  OptionsCrumb: {}
+
+  # Deployment y Stage
+  APIDeployment: {}
+  APIStage: {}
+  APIKey: {}
+  UsagePlan: {}
+  UsagePlanKey: {}
+
+Outputs:
+  APIEndpoint:
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+  APIKeyId: !Ref APIKey
+  GetAPIKeyCommand: !Sub "aws apigateway get-api-key --api-key ${APIKey} --include-value --query 'value' --output text"
+\end{lstlisting}
+
+\subparagraph{Explicación general:}
+\begin{itemize}
+    \item La plantilla define \textbf{parámetros} para la VPC, subnets y detalles de la base de datos (solo probado e implementado para PostgreSQL).
+    \item Se crean \textbf{funciones Lambda} para cada operación CRUD: crear, obtener (uno o todos), actualizar y eliminar \textit{crumbs}.
+    \item Cada Lambda tiene su propio \textbf{grupo de logs} en CloudWatch.
+    \item Se configura un \textbf{API Gateway REST} con rutas para /crumbs y /crumbs/{id}, incluyendo métodos HTTP y soporte para CORS.
+    \item Se genera una \textbf{API Key} con un plan de uso asociado para controlar el acceso.
+    \item Los \textbf{outputs} permiten obtener la URL de la API y la id de la clave de acceso.
+\end{itemize}
+
+\paragraph{frontEC2Cluster.yml - Despliegue del Frontend}
+Ya descrito en: \ref{sec:FrontendCloudFormation}.
+
+

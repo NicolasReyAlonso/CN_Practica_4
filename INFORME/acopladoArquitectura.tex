@@ -1,0 +1,703 @@
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,y,n},
+  keywordstyle=\color{blue}\bfseries,
+  basicstyle=\ttfamily\small,
+  comment=[l]{\#},
+  commentstyle=\color{gray},
+  stringstyle=\color{red},
+}
+
+
+\section{Acoplado}
+
+He editado las plantillas YAML suministradas por el profesor para generar un nuevo conjunto de plantillas que desplieguen los componentes del proyecto \textit{Crumblr}, separando frontend y backend.
+
+En el proyecto de \href{https://github.com/NicolasReyAlonso/CN_Practica_4.git}{github} se encuentra el 
+progreso realizado a lo largo del desarrollo de la practica así como las utilidades \textit{shell scripts} creados.
+Sin embargo, en esta sección se describen las modificaciones y la estructura de las nuevas plantillas CloudFormation.
+Los componentes principales que he modificado/creado son los siguientes:
+\begin{itemize}
+    \item \textbf{Repositorios de imágenes:} Dos plantillas YAML para la creación de los repositorios en Amazon ECR, uno para el frontend y otro para el backend.
+    \item \textbf{Backend:} Una plantilla YAML que despliega un \textbf{ECS cluster} con la \textbf{task definition} correspondiente al backend, incluyendo la configuración de API Gateway para exponer los endpoints de la aplicación.
+    \item \textbf{Frontend:} Una plantilla YAML que despliega un \textbf{ECS cluster} para el frontend, configurando el \textbf{Application Load Balancer} y el security group necesario.
+\end{itemize}
+
+Estas configuraciones permiten que cada componente funcione de manera autónoma y puedan probarse independientemente.
+\subsection{Diagrama de arquitectura}
+\begin{figure}[H] % el [H] fuerza que la imagen se quede "aquí"
+  \centering
+  \includegraphics[height=0.8\textheight, keepaspectratio]{../crumblr_architecture_coupled.png}
+  \caption{Diagrama de la arquitectura de Crumblr}
+  \label{fig:arquitectura-crumblr}
+\end{figure}
+
+\subsection{Explicación de los templates de CloudFormation}
+\subsubsection{Repositorios de imágenes}
+
+\paragraph{ecr.yml - Repositorio ECR para Crumblr}
+
+Esta plantilla CloudFormation define la infraestructura necesaria para almacenar las imágenes Docker de la aplicación Crumblr en Amazon Elastic Container Registry (ECR).
+
+\begin{lstlisting}[language=yaml, caption={Configuración del repositorio ECR}]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr ECR Repository"
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: cn/crumblr-repo
+    Description: ECR repository name
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+Outputs:
+  RepositoryUri:
+    Description: "ECR repository URI"
+    Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: Crumblr-ECR-URI 
+
+  RepositoryName:
+    Description: "ECR repository name"
+    Value: !Ref RepositoryName
+    Export:
+      Name: Crumblr-ECR-Name
+
+  RepositoryArn:
+    Description: "ECR repository ARN"
+    Value: !GetAtt ECRRepository.Arn
+    Export:
+      Name: Crumblr-ECR-ARN
+\end{lstlisting}
+
+\textbf{Componentes principales:}
+
+\begin{itemize}
+\item \textbf{Parameters - RepositoryName:} Define un parámetro configurable para el nombre del repositorio, con valor por defecto \verb|cn/crumblr-repo|.
+
+\item \textbf{ECRRepository:} Crea el repositorio ECR donde se almacenarán las imágenes Docker. Utiliza el nombre especificado en los parámetros mediante la función intrínseca \verb|!Ref|.
+
+\item \textbf{ImageScanningConfiguration:} Tiene desactivado el escaneo automático de vulnerabilidades (\verb|ScanOnPush: false|). En un entorno de producción, se recomienda activar esta funcionalidad para detectar posibles problemas de seguridad en las imágenes, pero por comodidad y para acelerar la entrega de esta práctica decidí dejarlo desactivado.
+
+\item \textbf{LifecyclePolicy:} Implementa una política de gestión del ciclo de vida que mantiene únicamente las 2 imágenes más recientes en el repositorio. Esto se mantiene ya que así se reduce el costo
+
+\item \textbf{Outputs:} Exporta tres valores esenciales que pueden ser referenciados por otras plantillas CloudFormation:
+  \begin{itemize}
+  \item \textbf{RepositoryUri:} La URI completa del repositorio, necesaria para hacer push de imágenes Docker.
+  \item \textbf{RepositoryName:} El nombre del repositorio, útil para scripts de automatización.
+  \item \textbf{RepositoryArn:} El ARN del repositorio, requerido para configurar permisos IAM y políticas de acceso.
+  \end{itemize}
+\end{itemize}
+
+\paragraph{Crumb-ecr-gui.yaml - Repositorio ECR para Crumblr Frontend}
+\label{sec:FrontendECR}
+
+Esta plantilla CloudFormation define el repositorio de Amazon Elastic Container Registry (ECR) destinado a almacenar las imágenes Docker correspondientes al \textit{frontend} de la aplicación Crumblr.
+
+\begin{lstlisting}[language=yaml, caption={Configuración del repositorio ECR para Crumblr Frontend}]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr ECR Repository"
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: cn/crumblr-gui
+    Description: ECR repository name
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+
+Outputs:
+  RepositoryUri:
+    Description: "ECR repository URI"
+    Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: Crumblr-Front-ECR-URI 
+
+  RepositoryName:
+    Description: "ECR repository name"
+    Value: !Ref RepositoryName
+    Export:
+      Name: Crumblr-Front-ECR-Name
+
+  RepositoryArn:
+    Description: "ECR repository ARN"
+    Value: !GetAtt ECRRepository.Arn
+    Export:
+      Name: Crumblr-Front-ECR-ARN
+\end{lstlisting}
+
+\textbf{Componentes principales:}
+
+\begin{itemize}
+\item \textbf{Parameters - RepositoryName:} Define el nombre del repositorio ECR con valor por defecto \verb|cn/crumblr-gui|, utilizado para almacenar las imágenes Docker del \textit{frontend} de la aplicación.
+
+\item \textbf{ECRRepository:} Crea el repositorio ECR que contendrá las imágenes del \textit{frontend}. Utiliza el parámetro definido anteriormente mediante la función \verb|!Ref|.
+
+\item \textbf{ImageScanningConfiguration:} El escaneo automático de vulnerabilidades está deshabilitado (\verb|ScanOnPush: false|). De forma similar al repositorio del backend, esta decisión se toma para agilizar los despliegues en el entorno de pruebas, aunque se recomienda activarlo en entornos de producción.
+
+\item \textbf{LifecyclePolicy:} Aplica una política que mantiene únicamente las dos imágenes más recientes, eliminando versiones antiguas para optimizar el uso del almacenamiento y reducir costos.
+
+\item \textbf{Outputs:} Exporta tres valores clave que permiten referenciar este repositorio desde otras plantillas o configuraciones:
+  \begin{itemize}
+  \item \textbf{RepositoryUri:} URI del repositorio ECR, necesaria para realizar el \textit{push} de imágenes Docker del \textit{frontend}.
+  \item \textbf{RepositoryName:} Nombre del repositorio
+  \item \textbf{RepositoryArn:} ARN del repositorio
+  \end{itemize}
+\end{itemize}
+
+\subsubsection{Bases de datos}
+\paragraph{db-postgres.yml - Base de datos PostgreSQL para Crumblr (Amazon RDS)}
+\label{sec:DBCloudFormation}
+Esta plantilla de CloudFormation crea una instancia de base de datos PostgreSQL administrada en Amazon RDS. Define parámetros de configuración, subredes privadas, grupos de seguridad y exporta el endpoint de conexión para su uso en otras pilas.
+
+\begin{lstlisting}[language=yaml, caption={RDS PostgreSQL para Crumblr - Base de datos persistente}, label={lst:rds_postgres}] ]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "RDS PostgreSQL para Crumblr (almacena los crumbs)"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC para la base de datos
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets (minimo 2)
+
+  DBName:
+    Type: String
+    Default: crumblr_db
+    Description: Nombre de la base de datos
+
+  DBUser:
+    Type: String
+    Default: postgres
+    Description: Usuario maestro
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Contrasena del usuario maestro
+
+Resources:
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group para RDS PostgreSQL (Crumblr)"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0  # Abierto a todos; idealmente restringirlo al backend
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: crumblr-db-subnet-group
+      DBSubnetGroupDescription: "Subnet group para la base de datos PostgreSQL de Crumblr"
+      SubnetIds: !Ref SubnetIds
+
+  PostgresDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: crumblr-postgres-db
+      Engine: postgres
+      EngineVersion: "17.6"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: true   # Solo si el backend no esta en la misma VPC
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      MultiAZ: false
+      StorageEncrypted: false
+
+Outputs:
+  DBEndpoint:
+    Description: "Endpoint del servidor PostgreSQL de Crumblr"
+    Value: !GetAtt PostgresDBInstance.Endpoint.Address
+    Export:
+      Name: Crumblr-DB-Endpoint
+
+  DBPort:
+    Description: "Puerto del servidor PostgreSQL"
+    Value: !GetAtt PostgresDBInstance.Endpoint.Port
+    Export:
+      Name: Crumblr-DB-Port
+
+  DBName:
+    Description: "Nombre de la base de datos"
+    Value: !Ref DBName
+    Export:
+      Name: Crumblr-DB-Name
+
+  DBUser:
+    Description: "Usuario maestro de la base de datos"
+    Value: !Ref DBUser
+    Export:
+      Name: Crumblr-DB-User
+\end{lstlisting}
+
+\textbf{Componentes principales:}
+
+\begin{itemize}
+  \item \textbf{Parameters:} Permiten configurar la plantilla con la VPC, subredes, nombre de base de datos y credenciales. El parámetro \verb|DBPassword| usa \verb|NoEcho| para ocultar la contraseña en la consola de AWS.
+  
+  \item \textbf{DBSecurityGroup:} Define un grupo de seguridad que habilita el puerto 5432 para conexiones PostgreSQL. El rango \verb|0.0.0.0/0| permite acceso público, pero se recomienda limitarlo al rango del backend ECS o a una IP específica.
+  
+  \item \textbf{DBSubnetGroup:} Agrupa las subredes donde se desplegará la base de datos, asegurando redundancia y aislamiento dentro de la VPC.
+  
+  \item \textbf{PostgresDBInstance:}
+  \begin{itemize}
+    \item Crea la instancia RDS usando el motor \texttt{postgres} versión 17.6.
+    \item Define una clase \texttt{db.t3.micro}, ideal para entornos de desarrollo o pruebas.
+    \item Almacena 20 GB en volumen SSD (\texttt{gp2}), con backups deshabilitados y sin Multi-AZ.
+    \item \texttt{PubliclyAccessible: true} permite conexión externa, útil si el backend no reside en la misma red privada.
+  \end{itemize}
+
+  \item \textbf{Outputs:} Exporta los valores del endpoint, puerto, nombre de base y usuario, de modo que otras pilas (por ejemplo, la del backend ECS) puedan importarlos mediante referencias cruzadas de CloudFormation.
+\end{itemize}
+
+
+\subsubsection{ECS Fargate}
+\paragraph{main.yml - Despliegue del backend}
+
+Esta plantilla de CloudFormation implementa la infraestructura central de la aplicación Crumblr, incluyendo el servicio backend desplegado sobre Amazon ECS Fargate, un balanceador de carga interno (NLB), una API REST administrada por Amazon API Gateway y una base de datos configurable (PostgreSQL o DynamoDB).
+
+\begin{lstlisting}[language=yaml, caption={Infraestructura principal de Crumblr — ECS + API Gateway + DB}]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr - ECS Fargate + API Gateway + PostgreSQL (or DynamoDB)"
+
+Parameters:
+  ImageName:
+    Type: String
+    Description: ECR Image name (from Crumblr ECR stack)
+    Default: crumblr-repo:latest
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Target VPC
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least 2 subnets in different AZs
+
+  DBType:
+    Type: String
+    Default: postgres
+    AllowedValues:
+      - postgres
+      - dynamodb
+
+  DBHost:
+    Type: String
+    Default: ""
+    Description: "DB Host (only used for PostgreSQL)"
+
+  DBName:
+    Type: String
+    Default: ""
+    Description: "DB Name (only used for PostgreSQL)"
+
+  DBUser:
+    Type: String
+    Default: ""
+    Description: "DB User (only used for PostgreSQL)"
+
+  DBPass:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: "DB Password (only used for PostgreSQL)"
+
+  DBDynamoName:
+    Type: String
+    Default: "crumbs"
+    Description: "DynamoDB table name"
+
+# --- Networking ---
+Resources:
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Crumblr ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+# --- Load Balancer ---
+  NLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: crumblr-nlb
+      Type: network
+      Scheme: internal
+      Subnets: !Ref SubnetIds
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: crumblr-tg
+      Port: 8080
+      Protocol: TCP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref NLB
+      Port: 8080
+      Protocol: TCP
+
+# --- ECS ---
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-cluster
+  CrumblrLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumblr-service
+      RetentionInDays: 14
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: crumblr-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ContainerDefinitions:
+        - Name: crumblr-container
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
+          PortMappings:
+            - ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/crumblr-service
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: crumblr
+          Environment:
+            - Name: DB_TYPE
+              Value: !Ref DBType
+            - Name: DB_HOST
+              Value: !Ref DBHost
+            - Name: DB_NAME
+              Value: !Ref DBName
+            - Name: DB_USER
+              Value: !Ref DBUser
+            - Name: DB_PASS
+              Value: !Ref DBPass
+            - Name: DB_DYNAMONAME
+              Value: !Ref DBDynamoName
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: crumblr-service
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups: [!Ref ECSSecurityGroup]
+      LoadBalancers:
+        - ContainerName: crumblr-container
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroup
+
+# --- API Gateway ---
+  VPCLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Name: crumblr-vpc-link
+      TargetArns: [!Ref NLB]
+
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: crumblr-api
+      Description: "REST API for Crumblr CRUD operations"
+
+# (Se omiten metodos por brevedad)
+
+# --- Outputs ---
+Outputs:
+  APIEndpoint:
+    Description: "Crumblr API URL"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  APIKeyId:
+    Description: "API Key ID"
+    Value: !Ref APIKey
+\end{lstlisting}
+
+\textbf{Componentes principales:}
+
+\begin{itemize}
+  \item \textbf{Parameters:} Permiten configurar la plantilla con valores dinámicos, como la imagen del contenedor, la VPC de destino y el tipo de base de datos (PostgreSQL o DynamoDB). Las credenciales de base de datos se definen con la opción \verb|NoEcho| para no mostrarse en la consola.
+
+  \item \textbf{Networking:} Crea un grupo de seguridad (\texttt{ECSSecurityGroup}) que habilita tráfico TCP en el puerto 8080, necesario para las tareas ECS y el balanceador.
+
+  \item \textbf{Load Balancer (NLB):} Implementa un balanceador de carga interno de tipo \texttt{network} con su correspondiente \texttt{TargetGroup} y \texttt{Listener}, encaminando el tráfico hacia las tareas ECS.
+
+  \item \textbf{ECS Fargate:} 
+  \begin{itemize}
+    \item \texttt{ECSCluster:} Define el clúster Fargate donde correrán los servicios.
+    \item \texttt{TaskDefinition:} Especifica los recursos (CPU, memoria) y la imagen Docker obtenida del repositorio ECR.
+    \item Variables de entorno (\texttt{DB\_TYPE}, \texttt{DB\_HOST}, etc.) permiten que el contenedor se conecte dinámicamente al motor de base de datos configurado.
+    \item \texttt{ECSService:} Lanza una instancia del contenedor y la asocia al balanceador mediante \texttt{TargetGroupArn}.
+  \end{itemize}
+
+  \item \textbf{API Gateway:} 
+  \begin{itemize}
+    \item Define un \texttt{RestAPI} con recursos \texttt{/crumbs} y \texttt{/crumbs/\{id\}}, conectados al backend mediante un \texttt{VpcLink}.
+    \item Configura los métodos HTTP (GET, POST, PUT, DELETE) con integración tipo \texttt{HTTP\_PROXY} apuntando al NLB.
+    \item Implementa opciones CORS para habilitar solicitudes desde el frontend.
+  \end{itemize}
+
+  \item \textbf{Deployment y seguridad:}
+  \begin{itemize}
+    \item El \texttt{ApiGateway::Deployment} y el \texttt{Stage} crean el entorno \texttt{prod}.
+    \item Se genera una \texttt{APIKey} y un \texttt{UsagePlan} asociado, limitando el acceso a consumidores autorizados.
+  \end{itemize}
+
+  \item \textbf{Outputs:} Exporta la URL pública del API Gateway (\texttt{APIEndpoint}) y el identificador de la API Key, ambos útiles para integraciones externas o pruebas.
+\end{itemize}
+
+\paragraph{frontEC2Cluster.yml - Despliegue del Frontend}
+\label{sec:FrontendCloudFormation}
+
+Esta plantilla CloudFormation despliega la infraestructura necesaria para el frontend de Crumblr sobre ECS Fargate con un Application Load Balancer (ALB), conectándose al backend mediante URL y API Key.
+
+\begin{lstlisting}[language=yaml, caption={Crumblr Frontend — ECS Fargate + ALB}, label={lst:frontend}]
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr Frontend on ECS Fargate + ALB"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  ImageName:
+    Type: String
+    Description: "ECR image name (e.g., crumblr-frontend-repo:latest)"
+  APIURL:
+    Type: String
+    Description: The full API URL (e.g., https://...)
+  APIKEY:
+    Type: String
+    Description: The API key
+
+Resources:
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow HTTP for Crumblr Frontend"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  FrontendCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-cluster-front
+
+  FrontendALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: crumblr-frontend-alb
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref FrontendSecurityGroup
+      Type: application
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 80
+      TargetType: ip
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+
+  FrontendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref FrontendALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumbler-frontend
+      RetentionInDays: 14
+
+  FrontendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: crumblr-frontend-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      ContainerDefinitions:
+        - Name: crumblr-frontend
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
+          PortMappings:
+            - ContainerPort: 80
+          Environment:
+            - Name: API_URL
+              Value: !Ref APIURL
+            - Name: API_KEY
+              Value: !Ref APIKEY
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/crumbler-frontend
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: crumblr-frontend
+
+  FrontendService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - FrontendListener
+    Properties:
+      Cluster: !Ref FrontendCluster
+      ServiceName: crumblr-frontend-service
+      TaskDefinition: !Ref FrontendTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref FrontendSecurityGroup
+      LoadBalancers:
+        - ContainerName: crumblr-frontend
+          ContainerPort: 80
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+Outputs:
+  FrontendURL:
+    Description: "Crumblr Frontend URL"
+    Value: !GetAtt FrontendALB.DNSName
+\end{lstlisting}
+
+\textbf{Componentes principales:}
+
+\begin{itemize}
+  \item \textbf{Parameters:} Permiten configurar dinámicamente la plantilla con:
+  \begin{itemize}
+    \item \texttt{VpcId} y \texttt{SubnetIds} para definir la red donde se desplegará el frontend.
+    \item \texttt{ImageName} para indicar la imagen del frontend en ECR.
+    \item \texttt{APIURL} y \texttt{APIKEY} para que el contenedor pueda conectarse al backend.
+  \end{itemize}
+
+  \item \textbf{FrontendSecurityGroup:} Grupo de seguridad que permite tráfico HTTP entrante en el puerto 80 y todo el tráfico saliente. Esto asegura que el frontend sea accesible públicamente y pueda comunicarse con otros servicios.
+
+  \item \textbf{FrontendCluster:} Clúster ECS donde se ejecutarán las tareas Fargate del frontend.
+
+  \item \textbf{FrontendALB, FrontendTargetGroup y FrontendListener:} 
+  \begin{itemize}
+    \item \texttt{FrontendALB} es el Application Load Balancer público que distribuye el tráfico a las tareas ECS.
+    \item \texttt{FrontendTargetGroup} define los objetivos (IP de contenedores) y la verificación de salud.
+    \item \texttt{FrontendListener} escucha en el puerto 80 y redirige el tráfico al Target Group.
+  \end{itemize}
+
+  \item \textbf{FrontendLogGroup:} Grupo de logs de CloudWatch donde se almacenarán los registros del contenedor, con retención de 14 días.
+
+  \item \textbf{FrontendTaskDefinition:} Define los recursos de cada tarea Fargate, la imagen Docker, variables de entorno (\texttt{API\_URL}, \texttt{API\_KEY}) y la configuración de logs.
+
+  \item \textbf{FrontendService:} Lanza la tarea Fargate y la asocia al ALB mediante el Target Group, asegurando alta disponibilidad y asignación de IP pública para acceso externo.
+
+  \item \textbf{Outputs:} Exporta la URL del frontend (\texttt{FrontendURL}) para que pueda ser usada en documentación o integraciones posteriores.
+\end{itemize}

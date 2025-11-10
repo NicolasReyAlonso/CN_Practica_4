@@ -1,0 +1,362 @@
+\subsection{Código}
+Los cambios que se realizaron al código residen principalmente en la implementación de un handler específico para cada operación. Sin embargo, se reutiliza todo lo que se encuentra en shared (modelo e inicialización) ya que no podía lanzar otra lambda por restricciones del laboratorio y no puedo saber cuál será la primera operación que realizará el backend.
+\subsubsection{Handlers}
+\paragraph{create-crumb}
+\begin{lstlisting}[language=python, caption={Handler para crear un crumb}, label={lst:create_crumb_desacoplado}]
+    import json
+import logging
+from datetime import datetime
+from shared.services.crumb_service import CrumbService
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+service = CrumbService()
+
+def handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+    try:
+        data = json.loads(event.get('body', '{}'))
+        crumb = service.create_crumb(data)
+        
+        # Convertir el objeto Crumb a dict serializable
+        crumb_dict = {
+            'crumb_id': crumb.crumb_id,
+            'content': crumb.content,
+            'image_url': crumb.image_url,
+            'created_at': crumb.created_at.isoformat() if isinstance(crumb.created_at, datetime) else crumb.created_at
+        }
+        
+        response = {
+            "statusCode": 201,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps(crumb_dict)
+        }
+        logger.info(f"Response: {response}")
+        return response
+    except Exception as e:
+        logger.exception("Error creating crumb")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+\end{lstlisting}
+
+\paragraph{get-crumbs}
+\begin{lstlisting}[language=python, caption={Handler para obtener todos los crumbs}, label={lst:get_crumbs_desacoplado}]
+import json
+import logging
+from datetime import datetime
+from shared.services.crumb_service import CrumbService
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+service = CrumbService()
+
+def handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+    try:
+        crumbs = service.get_all_crumbs()
+        
+        # Convertir lista de crumbs a lista de dicts serializables
+        crumbs_list = []
+        for crumb in crumbs:
+            crumbs_list.append({
+                'crumb_id': crumb.crumb_id,
+                'content': crumb.content,
+                'image_url': crumb.image_url,
+                'created_at': crumb.created_at.isoformat() if isinstance(crumb.created_at, datetime) else crumb.created_at
+            })
+        
+        response = {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps(crumbs_list)
+        }
+        return response
+    except Exception as e:
+        logger.exception("Error getting crumbs")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+\end{lstlisting}
+
+\paragraph{delete-crumb}
+\begin{lstlisting}[language=python, caption={Handler para eliminar un crumb}, label={lst:delete_crumb_desacoplado}]
+import json
+import logging
+from shared.services.crumb_service import CrumbService
+
+# Configurar logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+service = CrumbService()
+
+def handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+    try:
+        crumb_id = event['pathParameters']['id']
+        service.delete_crumb(crumb_id)
+        response = {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"message": "Crumb deleted successfully"})
+        }
+        logger.info(f"Response: {response}")
+        return response
+    except ValueError as e:
+        logger.warning(f"Crumb not found: {e}")
+        return {
+            "statusCode": 404,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+    except Exception as e:
+        logger.exception("Error deleting crumb")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+\end{lstlisting}
+
+\paragraph{get-crumb}
+\begin{lstlisting}[language=python, caption={Handler para obtener un crumb por ID}, label={lst:get_crumb_desacoplado}]
+import json
+import logging
+from datetime import datetime
+from shared.services.crumb_service import CrumbService
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+service = CrumbService()
+
+def handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+    try:
+        crumb_id = event['pathParameters']['id']
+        crumb = service.get_crumb(crumb_id)
+        
+        crumb_dict = {
+            'crumb_id': crumb.crumb_id,
+            'content': crumb.content,
+            'image_url': crumb.image_url,
+            'created_at': crumb.created_at.isoformat() if isinstance(crumb.created_at, datetime) else crumb.created_at
+        }
+        
+        response = {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps(crumb_dict)
+        }
+        return response
+    except ValueError as e:
+        return {
+            "statusCode": 404,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+    except Exception as e:
+        logger.exception("Error getting crumb")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+\end{lstlisting}
+
+\paragraph{update-crumb}
+\begin{lstlisting}[language=python, caption={Handler para actualizar un crumb}, label={lst:update_crumb_desacoplado}]
+import json
+import logging
+from datetime import datetime
+from shared.services.crumb_service import CrumbService
+
+# Configurar logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+service = CrumbService()
+
+def handler(event, context):
+    logger.info(f"Received event: {json.dumps(event)}")
+    try:
+        crumb_id = event['pathParameters']['id']
+        data = json.loads(event['body'])
+        updated = service.update_crumb(crumb_id, data)
+        
+        # Convertir el objeto Crumb a dict serializable
+        crumb_dict = {
+            'crumb_id': updated.crumb_id,
+            'content': updated.content,
+            'image_url': updated.image_url,
+            'created_at': updated.created_at.isoformat() if isinstance(updated.created_at, datetime) else updated.created_at
+        }
+        
+        response = {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps(crumb_dict)
+        }
+        logger.info(f"Response: {response}")
+        return response
+    except ValueError as e:
+        logger.warning(f"Crumb not found: {crumb_id}")
+        return {
+            "statusCode": 404,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+    except Exception as e:
+        logger.exception("Error updating crumb")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type,x-api-key",
+                "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS"
+            },
+            "body": json.dumps({"error": str(e)})
+        }
+\end{lstlisting}
+
+Cada uno de estos handlers se despliega como una función Lambda independiente y realiza la acción de su nombre.
+
+\subsubsection{Shared}
+Código necesario compartido entre los distintos handlers, incluyendo el modelo de datos y la inicialización del servicio de acceso a datos.
+\paragraph{crumb.py}
+El mismo que en la sección \ref{sec:ModelDB}.
+\paragraph{shared/*.py}
+los mismos que en las secciones \ref{sec:SharedCodeDB}, \ref{sec:SharedCodeFactory} y \ref{sec:SharedCodePostgres}.
+\paragraph{shared/crumb-service}
+Implementa la lógica de negocio para los crumbs, utilizando el patrón de diseño Service.
+\begin{lstlisting}[language=python, caption={Servicio de Crumb de Crumblr}, label={lst:crumb_service_desacoplado}]
+    from shared.db.factory import DatabaseFactory
+from shared.models.crumb import Crumb
+
+class CrumbService:
+    def __init__(self):
+        self.db = DatabaseFactory.create()
+
+    def create_crumb(self, data: dict) -> Crumb:
+        crumb = Crumb(**data)
+        return self.db.create_crumb(crumb)
+
+    def get_crumb(self, crumb_id: str) -> Crumb:
+        crumb = self.db.get_crumb(crumb_id)
+        if not crumb:
+            raise ValueError("Crumb not found")
+        return crumb
+
+    def get_all_crumbs(self):
+        return self.db.get_all_crumbs()
+
+    def update_crumb(self, crumb_id: str, data: dict) -> Crumb:
+        data.pop('crumb_id', None)
+        data.pop('created_at', None)
+        crumb = Crumb(**data)
+        updated = self.db.update_crumb(crumb_id, crumb)
+        if not updated:
+            raise ValueError("Crumb not found")
+        return updated
+
+    def delete_crumb(self, crumb_id: str) -> bool:
+        deleted = self.db.delete_crumb(crumb_id)
+        if not deleted:
+            raise ValueError("Crumb not found")
+        return deleted
+\end{lstlisting}
+
+Soy consciente de que se trata de un código monolítico y que podría haberlo separado para que cada handler tuviera su propio servicio, pero por limitaciones de tiempo y para evitar redundancias he optado por esta solución ya que el build lo realizaba copiando la carpeta de shared en las diferentes lambdas con un mismo dockerfile para todas las lambdas.
+
+\subsubsection{dockerfile}
+Cada servicio lambda se construye utilizando el siguiente Dockerfile, que instala las dependencias necesarias y copia el código fuente.
+\begin{lstlisting}[language=Dockerfile, caption={Dockerfile para las funciones Lambda de Crumblr}, label={lst:dockerfile_lambdas_desacoplado}]
+# Base image oficial de AWS Lambda para Python 3.11
+FROM public.ecr.aws/lambda/python:3.11
+
+# Copiar código de la Lambda
+COPY app.py ${LAMBDA_TASK_ROOT}/
+
+# Copiar código compartido
+COPY ./shared ${LAMBDA_TASK_ROOT}/shared
+
+# Crear __init__.py en todas las carpetas para que Python las reconozca como módulos
+RUN touch ${LAMBDA_TASK_ROOT}/shared/__init__.py && \
+    touch ${LAMBDA_TASK_ROOT}/shared/db/__init__.py && \
+    touch ${LAMBDA_TASK_ROOT}/shared/models/__init__.py && \
+    touch ${LAMBDA_TASK_ROOT}/shared/services/__init__.py
+
+# Instalar dependencias
+RUN pip install --no-cache-dir pydantic psycopg2-binary
+
+# Comando de arranque para Lambda
+CMD ["app.handler"]
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{Imagen base:} Se utiliza \texttt{public.ecr.aws/lambda/python:3.11}, que ya incluye el runtime de Python 3.11 preparado para AWS Lambda.
+    
+    \item \textbf{Copiado del código:} Se copia el archivo principal \texttt{app.py} al directorio de trabajo de Lambda (\texttt{\$LAMBDA\_TASK\_ROOT}) y, además, se copia el código compartido ubicado en \texttt{./shared} para poder ser utilizado por todas las funciones.
+    
+    \item \textbf{Módulos Python:} Se crean los archivos \texttt{\_\_init\_\_.py} en cada subcarpeta del código compartido (\texttt{shared}, \texttt{db}, \texttt{models}, \texttt{services}) para que Python reconozca estos directorios como paquetes y se pueda importar su contenido correctamente.
+    
+    \item \textbf{Instalación de dependencias:} Se instalan las librerías necesarias con \texttt{pip}, en este caso \texttt{pydantic} para validación de modelos y \texttt{psycopg2-binary} para conexión con PostgreSQL, usando la opción \texttt{--no-cache-dir} para no guardar la cache de instalación y mantener la imagen ligera.
+    
+    \item \textbf{Comando de arranque:} Finalmente, se define el \texttt{CMD} de la imagen, que indica a Lambda cuál es el manejador principal de la función, en este caso \texttt{app.handler}.
+\end{itemize}
+
