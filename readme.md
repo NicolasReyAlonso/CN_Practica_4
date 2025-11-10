@@ -5,10 +5,10 @@ Crumblr es una página web sucesora espiritual de tumblr en la que es posible ha
 Por otra parte se encuentra la versión Desacoplada en ["DESACOPLADO"](./DESACOPLADO/). Esta versión para el modelo de negocio de mi aplicación supone más que una mejora de escalabilidad, un problema de encarecimiento ya que el uso de lambdas dispara el coste del lanzamiento con que la usen un par de miles de usuarios.
 
 - **Arquitectura "Acoplada":** 
-  - Monolito tradicional con ECS Fargate + API Gateway
+  - Monolito tradicional con ECS Fargate + API Gateway + DB postgres
   - Frontend que utiliza ECS Fargate
 - **Arquitectura Desacoplada:** 
-  - Microservicios con Lambda + API Gateway
+  - Microservicios con Lambda + API Gateway + DB postgres
   - Frontend separado en un ECS Fargate
 
 
@@ -26,8 +26,8 @@ Utilicé postgres porque es la base de datos con la que estoy más familiarizado
 ### Componentes principales **ACOPLADO**
 - **API Gateway (REST)**: expone los recursos `crumbs` y `crum` y enruta al backend vía VPC Link. Protegido con API Key.
 - **VPC Link + NLB**: el VPC Link conecta API Gateway con un Network Load Balancer interno que apunta al servicio de ECS.
-- **ECS Fargate 1**: ejecuta el contenedor de la app Flask definido en `/Crumblr-Front/Dockerfile` y `/Crumblr-Front/mainFront.yml`.
-- **ECS Fargate 2**: ejecuta el contenedor del frontend `Dockerfile` y `main.yml`.
+- **ECS Fargate 1**: ejecuta el contenedor del frontend definido en `/Crumblr-Front/Dockerfile` y `/Crumblr-Front/frontEC2Cluster.yaml`.
+- **ECS Fargate 2**: ejecuta el contenedor de la app Flask definido en `Dockerfile` y `main.yml`.
 - **Bases de datos**:
   - **PostgreSQL (Amazon RDS)** en el VPC, con SG de acceso al puerto 5432.
 - **Amazon ECR**: repositorio para la imagen del contenedor.
@@ -163,10 +163,7 @@ Utilicé postgres porque es la base de datos con la que estoy más familiarizado
 ### Variables de entorno
 
 - **DB_TYPE**: `postgres` (por defecto) o `dynamodb`.
-- Si `DB_TYPE=postgres`:
   - **DB_HOST**, **DB_NAME**, **DB_USER**, **DB_PASS**.
-- Si `DB_TYPE=dynamodb`:
-  - **DB_DYNAMONAME**: nombre de la tabla (por defecto `tickets`).
 
 
 ### Despliegue en AWS **ACOPLADO** (CloudFormation)
@@ -180,7 +177,7 @@ Orden recomendado de plantillas:
 5. `Crumblr-Front/Crumb-ecr-gui` → repo del gui.
 6. `Crumblr-Front/app.js` → cambiar los campos de apiurl y apikey para el resultante.
 7. `Crumblr-Front/buildandpush.sh` → Cambiar los valores como antes.
-8. `Crumblr-Front/buildandpush.sh` → frontEC2Cluster.
+8. `Crumblr-Front/buildandpush.sh` → despliega el frontend.
 
 Parámetros clave de `main.yml`:
 
@@ -189,6 +186,24 @@ Parámetros clave de `main.yml`:
 - **DBType**: `postgres` o `dynamodb`.
 - Campos de DB correspondientes: `DBHost`, `DBName`, `DBUser`, `DBPass` o `DBDynamoName`.
 
+### Despliegue en AWS **DESACOPLADO** (CloudFormation)
+0. Dirigirse a la carpeta [DESACOPLADO](./DESACOPLADO/)
+Orden recomendado de plantillas:
+
+1. `BUILDALLECR.yml` → crea el repositorio y subir la imagen.
+2. `db_postgres.yml` → crea la base de datos.
+3. `Crumblr-Back/BUILDANDPUSHALL.sh` → IMPORTANTE sustituir datos por los de su cuenta aws
+4. `main.yml` → despliega VPC Link, NLB, ECS Fargate, API Gateway y enlaza la imagen y variables.
+5. `Crumblr-Front/Crumb-ecr-gui` → repo del gui.
+6. `Crumblr-Front/app.js` → cambiar los campos de apiurl y apikey para el resultante.
+7. `Crumblr-Front/buildandpush.sh` → Cambiar los valores como antes.
+8. `Crumblr-Front/frontEC2Cluster.yaml` → despliega el frontend.
+
+Parámetros clave de `main.yml`:
+
+- **VpcId**, **SubnetIds**: VPC y subredes existentes.
+- **DBType**: `postgres` o `dynamodb`.
+- Campos de DB correspondientes: `DBHost`, `DBName`, `DBUser`, `DBPass` o `DBDynamoName`.
 
 ### COSTO:
 #### Acoplado:
@@ -206,13 +221,13 @@ Application Load Balancer LCU usage charges (monthly): 73.00 USD
 
 #### Fuente:
 - [aws pricing calculator](https://calculator.aws/)
-- [chatGPT]()
-- [claude]()
+- [chatGPT](https://chatgpt.com)
+- [claude](https://claude.ai)
 ### Notas
+- En el proyecto hay varios scripts de ayuda como getapikey.sh el cual permite obtener la apikey con la apikeyid o buildandpush.sh que en cada carpeta permite compilar y subir el docker image al repo que se introduzca en el sh
 
-- La región de las prácticas es `us-east-1`.
-- El contenedor expone el puerto 8080 y el NLB escucha en el mismo puerto.
-- Se deja tanto el grupo de seguridad de la tarea de ECS como de la BBDD abierto para que los alumnos puedan acceder desde fuera para validar su trabajo. Permitiéndoles debuggear de forma sencilla.
+### Testing
+- Se dispone de un shell script al cual se le han de cambiar los parametros (APIURL y APIKEY) que permite testear todos los métodos.
 
 ### Uso de IA
 - Ayuda en el desarrollo del frontend.
