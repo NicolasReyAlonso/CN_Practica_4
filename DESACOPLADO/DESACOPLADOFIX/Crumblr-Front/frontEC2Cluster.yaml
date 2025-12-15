@@ -1,0 +1,145 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr Frontend on ECS Fargate + ALB"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  ImageName:
+    Type: String
+    Description: "ECR image name (e.g., crumblr-frontend-repo:latest)"
+    Default: "crumblr-gui:latest"
+  APIURL:
+    Type: String
+    Description: The full API URL (e.g., https://...)
+  APIKEY:
+    Type: String
+    Description: The API key
+
+Resources:
+  # -----------------------------------------------------------
+  # Security Group
+  # -----------------------------------------------------------
+  FrontendSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow HTTP for Crumblr Frontend"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  # -----------------------------------------------------------
+  # ECS Cluster
+  # -----------------------------------------------------------
+  FrontendCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-cluster-front-des
+
+  # -----------------------------------------------------------
+  # Application Load Balancer
+  # -----------------------------------------------------------
+  FrontendALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: crumblr-frontend-alb-des
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref FrontendSecurityGroup
+      Type: application
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 80
+      TargetType: ip
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+
+  FrontendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref FrontendALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+  # -----------------------------------------------------------
+  # Log Group
+  # -----------------------------------------------------------
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumbler-frontend
+      RetentionInDays: 14
+
+  # -----------------------------------------------------------
+  # Task Definition
+  # -----------------------------------------------------------
+  FrontendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: crumblr-frontend-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      ContainerDefinitions:
+        - Name: crumblr-frontend-des
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
+          PortMappings:
+            - ContainerPort: 80
+          Environment:
+            - Name: API_URL
+              Value: !Ref APIURL
+            - Name: API_KEY
+              Value: !Ref APIKEY
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/crumbler-frontend
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: crumblr-frontend
+
+  # -----------------------------------------------------------
+  # ECS Service
+  # -----------------------------------------------------------
+  FrontendService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - FrontendListener
+    Properties:
+      Cluster: !Ref FrontendCluster
+      ServiceName: crumblr-frontend-service-des
+      TaskDefinition: !Ref FrontendTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref FrontendSecurityGroup
+      LoadBalancers:
+        - ContainerName: crumblr-frontend-des
+          ContainerPort: 80
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+Outputs:
+  FrontendURL:
+    Description: "Crumblr Frontend URL"
+    Value: !GetAtt FrontendALB.DNSName
