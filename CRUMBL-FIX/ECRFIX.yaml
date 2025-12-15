@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr ECR Repository"
+
+Parameters:
+  RepositoryName:
+    Type: String
+    Default: crumblr-repo
+    Description: ECR repository name
+  RepositoryName2:
+    Type: String
+    Default: crumblr-gui
+    Description: ECR repository name
+
+Resources:
+  ECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+  ECRRepository2:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Ref RepositoryName2
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+Outputs:
+  RepositoryUri:
+    Description: "ECR repository URI"
+    Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: Crumblr-ECR-URI 
+
+  RepositoryName:
+    Description: "ECR repository name"
+    Value: !Ref RepositoryName
+    Export:
+      Name: Crumblr-ECR-Name
+
+  RepositoryArn:
+    Description: "ECR repository ARN"
+    Value: !GetAtt ECRRepository.Arn
+    Export:
+      Name: Crumblr-ECR-ARN
+      
+  RepositoryUri2:
+    Description: "ECR repository URI"
+    Value: !GetAtt ECRRepository2.RepositoryUri
+    Export:
+      Name: Crumblr-Front-ECR-URI 
+
+  RepositoryName2:
+    Description: "ECR repository name"
+    Value: !Ref RepositoryName2
+    Export:
+      Name: Crumblr-Front-ECR-Name
+
+  RepositoryArn2:
+    Description: "ECR repository ARN"
+    Value: !GetAtt ECRRepository2.Arn
+    Export:
+      Name: Crumblr-Front-ECR-ARN

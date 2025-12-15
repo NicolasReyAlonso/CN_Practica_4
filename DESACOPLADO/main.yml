@@ -179,7 +179,7 @@ Resources:
   RestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: crumblr-api
+      Name: crumblr-api-des
       Description: "REST API for Crumblr CRUD operations"
 
   CrumbsResource:
@@ -389,13 +389,13 @@ Resources:
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
-      Name: crumblr-api-key
+      Name: crumblr-api-key-des
       Enabled: true
 
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
     Properties:
-      UsagePlanName: crumblr-usage-plan
+      UsagePlanName: crumblr-usage-plan-des
       ApiStages:
         - ApiId: !Ref RestAPI
           Stage: !Ref APIStage

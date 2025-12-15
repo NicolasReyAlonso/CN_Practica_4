@@ -1,6 +1,6 @@
 
-APIURI="https://0lqziua1y9.execute-api.us-east-1.amazonaws.com/prod/crumbs"
-APIKEY="McAPKEIMdV1s6P4C5IVvr4sxz5jE9CQa7JcjqMlR"
+APIURI="https://rz7bkepbwj.execute-api.us-east-1.amazonaws.com/prod/crumbs"
+APIKEY="WyUFVGjQSj7EfA9GCc1Lj7v1abUKrpbGusFN5lr5"
 
 curl -X POST "${APIURI}" \
   -H "Content-Type: application/json" \

@@ -1,0 +1,707 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Crumblr Complete Stack - RDS + Backend (ECS/API Gateway) + Frontend (ECS/ALB) - Secured"
+
+Parameters:
+  # VPC y Subnets
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: Target VPC
+  
+  VpcCIDR:
+    Type: String
+    Description: CIDR block de la VPC (ej. 10.0.0.0/16 o 172.31.0.0/16)
+    Default: 172.31.0.0/16
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Al menos 2 subnets en diferentes AZs
+
+  # Imágenes Docker
+  BackendImageName:
+    Type: String
+    Description: ECR Backend Image (e.g., crumblr-repo:latest)
+    Default: crumblr-repo:latest
+  
+  FrontendImageName:
+    Type: String
+    Description: ECR Frontend Image (e.g., crumblr-frontend-repo:latest)
+    Default: crumblr-gui:latest
+
+  # Database
+  DBName:
+    Type: String
+    Default: crumblr_db
+    Description: Nombre de la base de datos
+  
+  DBUser:
+    Type: String
+    Default: postgres
+    Description: Usuario maestro
+  
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Contraseña del usuario maestro
+
+# ============================================================================
+# RDS POSTGRESQL DATABASE
+# ============================================================================
+Resources:
+
+  ApiKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: crumblr-api-key
+      Description: "API Key for API Gateway (Crumblr)"
+      SecretString: !Sub "${AWS::StackName}-${AWS::Region}-${AWS::AccountId}"
+
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group para RDS PostgreSQL (Crumblr)"
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: crumblr-db-sg
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: crumblr-db-subnet-group
+      DBSubnetGroupDescription: "Subnet group para la base de datos PostgreSQL de Crumblr"
+      SubnetIds: !Ref SubnetIds
+
+  PostgresDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: crumblr-postgres-db
+      Engine: postgres
+      EngineVersion: "17.2"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      MultiAZ: false
+      StorageEncrypted: false
+
+# ============================================================================
+# BACKEND - NETWORK LOAD BALANCER
+# ============================================================================
+  # Security Group para NLB - Solo acepta tráfico desde dentro de la VPC
+  NLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Backend NLB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: !Ref VpcCIDR
+      Tags:
+        - Key: Name
+          Value: crumblr-nlb-sg
+
+  BackendNLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: crumblr-nlb
+      Type: network
+      Scheme: internal
+      Subnets: !Ref SubnetIds
+
+  BackendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: crumblr-backend-tg
+      Port: 8080
+      Protocol: TCP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+
+  BackendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref BackendTargetGroup
+      LoadBalancerArn: !Ref BackendNLB
+      Port: 8080
+      Protocol: TCP
+
+# ============================================================================
+# BACKEND - ECS CLUSTER & SERVICE
+# ============================================================================
+  # Security Group para ECS Backend - Sin reglas de egreso a DB inicialmente
+  BackendECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Crumblr Backend ECS tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: !Ref VpcCIDR
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: crumblr-backend-ecs-sg
+
+  # Regla de ingreso de DB desde ECS (evita circular dependency)
+  DBSecurityGroupIngressFromECS:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DBSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !Ref BackendECSSecurityGroup
+
+  # Regla de egreso de ECS hacia DB (evita circular dependency)
+  BackendECSSecurityGroupEgressToDB:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref BackendECSSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      DestinationSecurityGroupId: !Ref DBSecurityGroup
+
+  BackendECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-backend-cluster
+
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumblr-backend-service
+      RetentionInDays: 14
+
+  BackendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: crumblr-backend-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ContainerDefinitions:
+        - Name: crumblr-backend-container
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${BackendImageName}"
+          PortMappings:
+            - ContainerPort: 8080
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/crumblr-backend-service
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: crumblr-backend
+          Environment:
+            - Name: DB_TYPE
+              Value: postgres
+            - Name: DB_HOST
+              Value: !GetAtt PostgresDBInstance.Endpoint.Address
+            - Name: DB_NAME
+              Value: !Ref DBName
+            - Name: DB_USER
+              Value: !Ref DBUser
+            - Name: DB_PASS
+              Value: !Ref DBPassword
+
+  BackendECSService:
+    Type: AWS::ECS::Service
+    DependsOn: 
+      - BackendListener
+      - PostgresDBInstance
+    Properties:
+      Cluster: !Ref BackendECSCluster
+      ServiceName: crumblr-backend-service
+      TaskDefinition: !Ref BackendTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups: 
+            - !Ref BackendECSSecurityGroup
+      LoadBalancers:
+        - ContainerName: crumblr-backend-container
+          ContainerPort: 8080
+          TargetGroupArn: !Ref BackendTargetGroup
+
+# ============================================================================
+# API GATEWAY
+# ============================================================================
+  VPCLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Name: crumblr-vpc-link
+      TargetArns: 
+        - !Ref BackendNLB
+
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: crumblr-api
+      Description: "REST API for Crumblr CRUD operations"
+
+  CrumbsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: crumbs
+
+  CrumbResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !Ref CrumbsResource
+      PathPart: "{id}"
+
+  # POST /crumbs
+  PostCrumbs:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "http://${BackendNLB.DNSName}:8080/crumbs"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 201
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # GET /crumbs
+  GetCrumbs:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${BackendNLB.DNSName}:8080/crumbs"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # GET /crumbs/{id}
+  GetCrumb:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters: 
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${BackendNLB.DNSName}:8080/crumbs/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # PUT /crumbs/{id}
+  PutCrumb:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters: 
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: PUT
+        Uri: !Sub "http://${BackendNLB.DNSName}:8080/crumbs/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # DELETE /crumbs/{id}
+  DeleteCrumb:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters: 
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: DELETE
+        Uri: !Sub "http://${BackendNLB.DNSName}:8080/crumbs/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+        - StatusCode: 204
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # OPTIONS /crumbs (CORS)
+  OptionsCrumbs:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # OPTIONS /crumbs/{id} (CORS)
+  OptionsCrumb:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref CrumbResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Gateway Responses para CORS
+  GatewayResponse4XX:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResponseType: DEFAULT_4XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+
+  GatewayResponse5XX:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResponseType: DEFAULT_5XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+        gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+
+  # API Deployment
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostCrumbs
+      - GetCrumbs
+      - GetCrumb
+      - PutCrumb
+      - DeleteCrumb
+      - OptionsCrumbs
+      - OptionsCrumb
+    Properties:
+      RestApiId: !Ref RestAPI
+
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref APIDeployment
+      StageName: prod
+
+  
+  APIKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: crumblr-api-key
+      Enabled: true
+      Value: !Sub "${AWS::StackName}-${AWS::Region}-${AWS::AccountId}"
+
+
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIStage
+    Properties:
+      UsagePlanName: crumblr-usage-plan
+      ApiStages:
+        - ApiId: !Ref RestAPI
+          Stage: prod
+
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref APIKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+
+# ============================================================================
+# FRONTEND - APPLICATION LOAD BALANCER
+# ============================================================================
+  # Security Group para Frontend ALB - Abierto a Internet (puerto 80)
+  FrontendALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow HTTP for Crumblr Frontend ALB"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: crumblr-frontend-alb-sg
+
+  # Security Group para ECS Frontend - Solo acepta tráfico desde ALB
+  FrontendECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow traffic from ALB to Frontend ECS"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref FrontendALBSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: crumblr-frontend-ecs-sg
+
+  FrontendALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: crumblr-frontend-alb
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref FrontendALBSecurityGroup
+      Type: application
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: crumblr-frontend-tg
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 80
+      TargetType: ip
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: 200
+
+  FrontendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref FrontendALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+# ============================================================================
+# FRONTEND - ECS CLUSTER & SERVICE
+# ============================================================================
+  FrontendECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-frontend-cluster
+
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumblr-frontend
+      RetentionInDays: 14
+
+  FrontendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: crumblr-frontend-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ContainerDefinitions:
+        - Name: crumblr-frontend
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FrontendImageName}"
+          PortMappings:
+            - ContainerPort: 80
+          # Env normales (mantén tu API_URL aquí)
+          Environment:
+            - Name: API_URL
+              Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+          Secrets:
+            - Name: API_KEY
+              ValueFrom: !Ref ApiKeySecret
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/crumblr-frontend
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: crumblr-frontend
+
+       
+
+
+  FrontendECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - FrontendListener
+      - APIStage
+    Properties:
+      Cluster: !Ref FrontendECSCluster
+      ServiceName: crumblr-frontend-service
+      TaskDefinition: !Ref FrontendTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref FrontendECSSecurityGroup
+      LoadBalancers:
+        - ContainerName: crumblr-frontend
+          ContainerPort: 80
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+Outputs:
+  DatabaseEndpoint:
+    Description: "PostgreSQL Database Endpoint"
+    Value: !GetAtt PostgresDBInstance.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-DB-Endpoint"
+
+  DatabasePort:
+    Description: "PostgreSQL Database Port"
+    Value: !GetAtt PostgresDBInstance.Endpoint.Port
+    Export:
+      Name: !Sub "${AWS::StackName}-DB-Port"
+
+  APIEndpoint:
+    Description: "API Gateway Endpoint URL"
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Export:
+      Name: !Sub "${AWS::StackName}-API-Endpoint"
+
+  APIKeyId:
+    Description: "API Key ID (use AWS Console to get the actual key value)"
+    Value: !Ref APIKey
+    Export:
+      Name: !Sub "${AWS::StackName}-API-Key-ID"
+
+  FrontendURL:
+    Description: "Frontend Application URL"
+    Value: !Sub "http://${FrontendALB.DNSName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-Frontend-URL"
+
+  BackendNLBDNS:
+    Description: "Backend NLB DNS (internal only)"
+    Value: !GetAtt BackendNLB.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-Backend-NLB-DNS"

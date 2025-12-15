@@ -41,14 +41,14 @@ Resources:
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupName: crumblr-db-subnet-group
+      DBSubnetGroupName: crumblr-db-subnet-group-des
       DBSubnetGroupDescription: "Subnet group para la base de datos PostgreSQL de Crumblr"
       SubnetIds: !Ref SubnetIds
 
   PostgresDBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: crumblr-postgres-db
+      DBInstanceIdentifier: crumblr-postgres-db-des
       Engine: postgres
       EngineVersion: "17.6"
       DBInstanceClass: db.t3.micro
