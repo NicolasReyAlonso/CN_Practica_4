@@ -1,21 +1,17 @@
-const API_URL = "https://v4vbkmeftj.execute-api.us-east-1.amazonaws.com/prod/crumbs";
-const API_KEY = "x3SV9yBfwuWJ3M3NyT3E541ykzkEWdN9jrMj40ah";
-
+const API_URL = "${API_URL}/crumbs";
+const API_KEY = "${API_KEY}";
 
 async function fetchCrumbs() {
   const res = await fetch(API_URL, {
     headers: { "x-api-key": API_KEY }
   });
-
   if (!res.ok) {
     alert("Error al obtener los crumbs");
     return;
   }
-
   const data = await res.json();
   const list = document.getElementById("crumbs-list");
   list.innerHTML = "";
-
   data.forEach(crumb => {
     const li = document.createElement("li");
     li.innerHTML = `
@@ -35,9 +31,7 @@ async function createCrumb(e) {
   e.preventDefault();
   const content = document.getElementById("content").value.trim();
   const image_url = document.getElementById("image_url").value.trim();
-
   if (!content) return alert("El contenido no puede estar vacío");
-
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -46,7 +40,6 @@ async function createCrumb(e) {
     },
     body: JSON.stringify({ content, image_url })
   });
-
   if (res.ok) {
     document.getElementById("create-form").reset();
     fetchCrumbs();
@@ -60,16 +53,13 @@ async function deleteCrumb(id) {
     method: "DELETE",
     headers: { "x-api-key": API_KEY }
   });
-
   if (res.ok) fetchCrumbs();
   else alert("Error al eliminar el crumb");
 }
 
-// 🆕 Nueva función para editar un crumb
 function editCrumb(id, currentContent, currentImage) {
   const newContent = prompt("Editá el contenido del crumb:", currentContent);
-  if (newContent === null) return; // usuario canceló
-
+  if (newContent === null) return;
   const newImage = prompt("Editá la URL de imagen (o dejá vacío):", currentImage);
   updateCrumb(id, newContent, newImage);
 }
@@ -83,7 +73,6 @@ async function updateCrumb(id, content, image_url) {
     },
     body: JSON.stringify({ content, image_url })
   });
-
   if (res.ok) {
     fetchCrumbs();
   } else {

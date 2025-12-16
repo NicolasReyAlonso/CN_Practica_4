@@ -1,5 +1,5 @@
-APIURI="https://0lqziua1y9.execute-api.us-east-1.amazonaws.com/prod/crumbs"
-APIKEY="McAPKEIMdV1s6P4C5IVvr4sxz5jE9CQa7JcjqMlR"
+APIURI="https://r3qwoyw0bj.execute-api.us-east-1.amazonaws.com/prod/crumbs"
+APIKEY="SQW8kZ2XRxaMe7jyCHwdB8lMgvqTma5l4nG917On"
 curl -X GET "${APIURI}" \
      -H "x-api-key: ${APIKEY}"
 

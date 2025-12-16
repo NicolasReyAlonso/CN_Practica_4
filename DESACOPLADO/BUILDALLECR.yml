@@ -123,3 +123,27 @@ Resources:
               }
             ]
           }
+  ECRRepository6:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: crumblr-gui
+      ImageScanningConfiguration:
+        ScanOnPush: false
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Mantain only last 2 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 2
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }

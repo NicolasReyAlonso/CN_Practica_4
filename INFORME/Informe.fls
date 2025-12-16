@@ -152,6 +152,9 @@ INPUT desacopladoCodigo.aux
 INPUT ./presupuestos.aux
 INPUT ./presupuestos.aux
 INPUT presupuestos.aux
+INPUT ./arreglos.aux
+INPUT ./arreglos.aux
+INPUT arreglos.aux
 OUTPUT Informe.aux
 INPUT /usr/local/texlive/2025/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 INPUT /usr/local/texlive/2025/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
@@ -265,6 +268,12 @@ INPUT ./presupuestos.tex
 INPUT ./presupuestos.tex
 INPUT presupuestos.tex
 INPUT /usr/local/texlive/2025/texmf-dist/fonts/tfm/jknappen/ec/ecbx1095.tfm
+INPUT ./arreglos.tex
+INPUT ./arreglos.tex
+OUTPUT arreglos.aux
+INPUT ./arreglos.tex
+INPUT ./arreglos.tex
+INPUT arreglos.tex
 INPUT Informe.aux
 INPUT ./index.aux
 INPUT ./index.aux
@@ -287,6 +296,9 @@ INPUT desacopladoCodigo.aux
 INPUT ./presupuestos.aux
 INPUT ./presupuestos.aux
 INPUT presupuestos.aux
+INPUT ./arreglos.aux
+INPUT ./arreglos.aux
+INPUT arreglos.aux
 INPUT ./Informe.out
 INPUT ./Informe.out
 INPUT /usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1095.pfb

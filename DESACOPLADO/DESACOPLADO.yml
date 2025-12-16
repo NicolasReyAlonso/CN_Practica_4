@@ -1,20 +1,19 @@
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Crumblr (Desacoplado) - AWS Lambda + API Gateway + RDS PostgreSQL. RDS SOLO accesible desde las Lambdas (SG a SG)."
+Description: "Crumblr (Desacoplado + Frontend) - AWS Lambda + API Gateway + RDS PostgreSQL + Frontend (ECS/ALB)"
 
 Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
-    Description: VPC de destino para Lambdas y RDS
+    Description: VPC de destino para Lambdas, RDS y Frontend
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: Al menos 2 subnets (preferiblemente privadas) en distintas AZs
+    Description: Al menos 2 subnets (preferiblemente privadas para Lambdas/DB; públicas para ALB) en distintas AZs
   DBType:
     Type: String
     Default: postgres
     AllowedValues:
       - postgres
-      - dynamodb
   DBName:
     Type: String
     Default: crumblr_db
@@ -32,10 +31,18 @@ Parameters:
     Type: String
     Default: crumbs
     Description: Nombre de la tabla DynamoDB (si se usa esa vía)
+  FrontendImageName:
+    Type: String
+    Description: ECR Frontend Image (e.g., crumblr-gui:latest)
+    Default: crumblr-gui:latest
+  AllowedOrigin:
+    Type: String
+    Default: '*'
+    Description: Origen permitido para CORS (e.g. https://mi-frontend.example)
 
 Resources:
   # ============================
-  # Networking / Security
+  # Networking / Security (Backend Lambdas + DB)
   # ============================
   LambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -286,7 +293,7 @@ Resources:
       SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*"
 
   # ============================
-  # API Gateway (proxy a Lambdas)
+  # API Gateway (proxy a Lambdas) + CORS consistente
   # ============================
   RestAPI:
     Type: AWS::ApiGateway::RestApi
@@ -378,7 +385,7 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteCrumbLambda.Arn}/invocations"
 
-  # OPTIONS /crumbs (CORS)
+  # OPTIONS /crumbs (CORS preflight)
   OptionsCrumbs:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -389,16 +396,16 @@ Resources:
       ApiKeyRequired: false
       Integration:
         Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
               method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
             ResponseTemplates:
-              application/json: ""
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
+              application/json: ''
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -406,7 +413,7 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  # OPTIONS /crumbs/{id} (CORS)
+  # OPTIONS /crumbs/{id} (CORS preflight)
   OptionsCrumb:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -417,16 +424,16 @@ Resources:
       ApiKeyRequired: false
       Integration:
         Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
               method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
             ResponseTemplates:
-              application/json: ""
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
+              application/json: ''
       MethodResponses:
         - StatusCode: 200
           ResponseParameters:
@@ -434,7 +441,30 @@ Resources:
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
+  # GatewayResponses para CORS en errores 4XX/5XX
+  Default4XXGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResponseType: DEFAULT_4XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+        gatewayresponse.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+
+  Default5XXGatewayResponse:
+    Type: AWS::ApiGateway::GatewayResponse
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResponseType: DEFAULT_5XX
+      ResponseParameters:
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+        gatewayresponse.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+
+  # ============================
   # Deployment y API Key / Usage Plan
+  # ============================
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -445,6 +475,8 @@ Resources:
       - DeleteCrumb
       - OptionsCrumbs
       - OptionsCrumb
+      - Default4XXGatewayResponse
+      - Default5XXGatewayResponse
     Properties:
       RestApiId: !Ref RestAPI
 
@@ -455,11 +487,25 @@ Resources:
       DeploymentId: !Ref APIDeployment
       StageName: prod
 
+  # Secret con el valor REAL de la API Key (se genera aleatorio)
+  ApiKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "crumblr-api-key-${AWS::StackName}"
+      Description: "API Key for API Gateway (Crumblr)"
+      GenerateSecretString:
+        SecretStringTemplate: '{"apiKey":""}'
+        GenerateStringKey: "apiKey"
+        PasswordLength: 32
+        ExcludePunctuation: true
+
+  # API Key de API Gateway usando el valor del secreto
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
       Name: crumblr-api-key-des
       Enabled: true
+      Value: !Sub "{{resolve:secretsmanager:${ApiKeySecret}:SecretString:apiKey}}"
 
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
@@ -476,16 +522,153 @@ Resources:
       KeyType: API_KEY
       UsagePlanId: !Ref UsagePlan
 
+  # ============================
+  # FRONTEND - ALB + ECS Fargate
+  # ============================
+  FrontendALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow HTTP for Crumblr Frontend ALB"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: crumblr-frontend-alb-sg
+
+  FrontendECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow traffic from ALB to Frontend ECS"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref FrontendALBSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: crumblr-frontend-ecs-sg
+
+  FrontendALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: crumblr-frontend-alb
+      Scheme: internet-facing
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref FrontendALBSecurityGroup
+      Type: application
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: crumblr-frontend-tg
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 80
+      TargetType: ip
+      HealthCheckPath: /
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+
+  FrontendListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref FrontendALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+  FrontendECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: crumblr-frontend-cluster
+
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/crumblr-frontend
+      RetentionInDays: 14
+
+  FrontendTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: crumblr-frontend-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ContainerDefinitions:
+        - Name: crumblr-frontend
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FrontendImageName}"
+          PortMappings:
+            - ContainerPort: 80
+          Environment:
+            - Name: API_URL
+              Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+            - Name: ALLOWED_ORIGIN
+              Value: !Ref AllowedOrigin
+          Secrets:
+            - Name: API_KEY
+              ValueFrom: !Sub "${ApiKeySecret}:apiKey::"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/crumblr-frontend
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: crumblr-frontend
+
+  FrontendECSService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - FrontendListener
+      - APIStage
+      - UsagePlanKey
+    Properties:
+      Cluster: !Ref FrontendECSCluster
+      ServiceName: crumblr-frontend-service
+      TaskDefinition: !Ref FrontendTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref FrontendECSSecurityGroup
+      LoadBalancers:
+        - ContainerName: crumblr-frontend
+          ContainerPort: 80
+          TargetGroupArn: !Ref FrontendTargetGroup
+
 Outputs:
   APIEndpoint:
     Description: URL de la API Gateway (stage prod)
     Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
   APIKeyId:
-    Description: API Key ID
+    Description: API Key ID (para referencia)
     Value: !Ref APIKey
-  GetAPIKeyCommand:
-    Description: Comando para obtener el valor de la API Key
-    Value: !Sub "aws apigateway get-api-key --api-key ${APIKey} --include-value --query 'value' --output text"
+  ApiKeySecretArn:
+    Description: ARN del secreto que contiene el VALOR de la API Key
+    Value: !Ref ApiKeySecret
   DBEndpoint:
     Description: Endpoint de la base de datos PostgreSQL
     Value: !GetAtt PostgresDBInstance.Endpoint.Address
@@ -495,3 +678,6 @@ Outputs:
   DBNameOut:
     Description: Nombre de la base de datos
     Value: !Ref DBName
+  FrontendURL:
+    Description: Frontend Application URL
+    Value: !Sub "http://${FrontendALB.DNSName}"

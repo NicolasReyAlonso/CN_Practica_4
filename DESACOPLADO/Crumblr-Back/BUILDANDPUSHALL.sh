@@ -17,13 +17,10 @@ for repo in "${REPOSITORIES[@]}"; do
     # Ir al directorio correspondiente
     cd lambda/functions/${repo}
 
-
-    # Forzar formato Docker clásico y arquitectura compatible
-    export DOCKER_BUILDKIT=0
     export DOCKER_DEFAULT_PLATFORM=linux/amd64
 
     # Construir la imagen
-    docker build --platform linux/amd64 -t ${repo} .
+    docker build --platform linux/amd64 -t ${repo} . --provenance false
 
 
 

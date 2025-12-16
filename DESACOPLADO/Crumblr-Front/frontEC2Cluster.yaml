@@ -9,7 +9,6 @@ Parameters:
   ImageName:
     Type: String
     Description: "ECR image name (e.g., crumblr-frontend-repo:latest)"
-    Default: "crumblr-gui:latest"
   APIURL:
     Type: String
     Description: The full API URL (e.g., https://...)
@@ -41,7 +40,7 @@ Resources:
   FrontendCluster:
     Type: AWS::ECS::Cluster
     Properties:
-      ClusterName: crumblr-cluster-front-des
+      ClusterName: crumblr-cluster-front
 
   # -----------------------------------------------------------
   # Application Load Balancer
@@ -49,7 +48,7 @@ Resources:
   FrontendALB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: crumblr-frontend-alb-des
+      Name: crumblr-frontend-alb
       Scheme: internet-facing
       Subnets: !Ref SubnetIds
       SecurityGroups:
@@ -99,7 +98,7 @@ Resources:
       Memory: 512
       ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       ContainerDefinitions:
-        - Name: crumblr-frontend-des
+        - Name: crumblr-frontend
           Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
           PortMappings:
             - ContainerPort: 80
@@ -124,7 +123,7 @@ Resources:
       - FrontendListener
     Properties:
       Cluster: !Ref FrontendCluster
-      ServiceName: crumblr-frontend-service-des
+      ServiceName: crumblr-frontend-service
       TaskDefinition: !Ref FrontendTaskDefinition
       DesiredCount: 1
       LaunchType: FARGATE
@@ -135,7 +134,7 @@ Resources:
           SecurityGroups:
             - !Ref FrontendSecurityGroup
       LoadBalancers:
-        - ContainerName: crumblr-frontend-des
+        - ContainerName: crumblr-frontend
           ContainerPort: 80
           TargetGroupArn: !Ref FrontendTargetGroup
 

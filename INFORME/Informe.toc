@@ -52,3 +52,5 @@
 \contentsline {section}{\numberline {6}Conclusiones}{51}{section.6}%
 \contentsline {section}{\numberline {7}Uso de la IA}{51}{section.7}%
 \contentsline {section}{\numberline {8}github}{51}{section.8}%
+\contentsline {section}{\numberline {9}Arreglos tras revisión}{52}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Cambios en arquitectura}{52}{subsection.9.1}%

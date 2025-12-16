@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.10.17)  10 NOV 2025 21:07
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.10.17)  16 DEC 2025 13:41
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -264,7 +264,7 @@ File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 ) (./Informe.aux
 LaTeX Info: Redefining \. on input line 11.
 LaTeX Info: Redefining \% on input line 11.
- (./index.aux) (./acopladoArquitectura.aux) (./acopladoCodigo.aux) (./frontend.aux) (./desacopladoArquitectura.aux) (./desacopladoCodigo.aux) (./presupuestos.aux))
+ (./index.aux) (./acopladoArquitectura.aux) (./acopladoCodigo.aux) (./frontend.aux) (./desacopladoArquitectura.aux) (./desacopladoCodigo.aux) (./presupuestos.aux) (./arreglos.aux))
 \openout1 = `Informe.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 32.
@@ -391,7 +391,7 @@ Overfull \hbox (4.38542pt too wide) in paragraph at lines 8--8
 \openout2 = `acopladoArquitectura.aux'.
 
  (./acopladoArquitectura.tex
-<../crumblr_architecture_coupled.png, id=293, 1080.035pt x 2892.8075pt>
+<../crumblr_architecture_coupled.png, id=303, 1080.035pt x 2892.8075pt>
 File: ../crumblr_architecture_coupled.png Graphic file (type png)
 <use ../crumblr_architecture_coupled.png>
 Package pdftex.def Info: ../crumblr_architecture_coupled.png  used on input line 30.
@@ -553,7 +553,7 @@ File: lstmisc.sty 2024/09/23 1.10c (Carsten Heinz)
 
 LaTeX Warning: Reference `sec:BackendCloudFormation' on page 33 undefined on input line 11.
 
-<../crumblr_architecture_decoupled.png, id=1429, 2758.305pt x 2178.1375pt>
+<../crumblr_architecture_decoupled.png, id=1439, 2758.305pt x 2178.1375pt>
 File: ../crumblr_architecture_decoupled.png Graphic file (type png)
 <use ../crumblr_architecture_decoupled.png>
 Package pdftex.def Info: ../crumblr_architecture_decoupled.png  used on input line 22.
@@ -655,10 +655,17 @@ LaTeX Warning: `!h' float specifier changed to `!ht'.
 [51
 
 
+]
+\openout2 = `arreglos.aux'.
+
+ (./arreglos.tex)
+
+[52
+
 ] (./Informe.aux
 LaTeX Info: Redefining \. on input line 11.
 LaTeX Info: Redefining \% on input line 11.
- (./index.aux) (./acopladoArquitectura.aux) (./acopladoCodigo.aux) (./frontend.aux) (./desacopladoArquitectura.aux) (./desacopladoCodigo.aux) (./presupuestos.aux))
+ (./index.aux) (./acopladoArquitectura.aux) (./acopladoCodigo.aux) (./frontend.aux) (./desacopladoArquitectura.aux) (./desacopladoCodigo.aux) (./presupuestos.aux) (./arreglos.aux))
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
@@ -668,21 +675,21 @@ L3 programming layer <2025-01-18>
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `Informe.out' has not changed.
-(rerunfilecheck)             Checksum: 72AC809CC8928E36D131423700DF6EE1;8718.
+(rerunfilecheck)             Checksum: 67541EBCCE6110D7437C666DED639D89;9060.
  ) 
 Here is how much of TeX's memory you used:
- 15845 strings out of 473190
- 241588 string characters out of 5715799
- 1070035 words of memory out of 5000000
- 37260 multiletter control sequences out of 15000+600000
+ 15875 strings out of 473190
+ 242217 string characters out of 5715799
+ 1070400 words of memory out of 5000000
+ 37280 multiletter control sequences out of 15000+600000
  573084 words of font info for 66 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  75i,10n,79p,791b,2104s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1095.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1200.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1440.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfbx1728.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfit1095.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm0600.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1200.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1440.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm2074.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfti1200.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sftt1095.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sftt1200.pfb>
-Output written on Informe.pdf (51 pages, 798863 bytes).
+Output written on Informe.pdf (52 pages, 800809 bytes).
 PDF statistics:
- 2461 PDF objects out of 2487 (max. 8388607)
- 2354 compressed objects within 24 object streams
- 1639 named destinations out of 1728 (max. 500000)
- 427 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 2475 PDF objects out of 2487 (max. 8388607)
+ 2367 compressed objects within 24 object streams
+ 1642 named destinations out of 1728 (max. 500000)
+ 443 words of extra memory for PDF output out of 10000 (max. 10000000)
 
