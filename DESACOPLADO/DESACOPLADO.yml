@@ -1,6 +1,6 @@
-
-AWSTemplateFormatVersion: "2010-09-09"
-Description: "Crumblr (Desacoplado + Frontend) - AWS Lambda + API Gateway + RDS PostgreSQL + Frontend (ECS/ALB)"
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Crumblr (Desacoplado + Frontend) - AWS Lambda + API Gateway + RDS
+  PostgreSQL + Frontend (ECS/ALB)
 
 Parameters:
   VpcId:
@@ -8,7 +8,8 @@ Parameters:
     Description: VPC de destino para Lambdas, RDS y Frontend
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: Al menos 2 subnets (preferiblemente privadas para Lambdas/DB; públicas para ALB) en distintas AZs
+    Description: Al menos 2 subnets (preferiblemente privadas para Lambdas/DB;
+      públicas para ALB) en distintas AZs
   DBType:
     Type: String
     Default: postgres
@@ -82,7 +83,7 @@ Resources:
     Properties:
       DBInstanceIdentifier: crumblr-postgres-db
       Engine: postgres
-      EngineVersion: "17.2"
+      EngineVersion: '17.2'
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
       StorageType: gp2
@@ -141,7 +142,7 @@ Resources:
       PackageType: Image
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Code:
-        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-crumb:latest"
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/create-crumb:latest
       Timeout: 15
       MemorySize: 512
       VpcConfig:
@@ -164,7 +165,7 @@ Resources:
       PackageType: Image
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Code:
-        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/get-crumb:latest"
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/get-crumb:latest
       Timeout: 15
       MemorySize: 512
       VpcConfig:
@@ -187,7 +188,7 @@ Resources:
       PackageType: Image
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Code:
-        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/get-crumbs:latest"
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/get-crumbs:latest
       Timeout: 15
       MemorySize: 512
       VpcConfig:
@@ -210,7 +211,7 @@ Resources:
       PackageType: Image
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Code:
-        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/update-crumb:latest"
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/update-crumb:latest
       Timeout: 15
       MemorySize: 512
       VpcConfig:
@@ -233,7 +234,7 @@ Resources:
       PackageType: Image
       Role: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       Code:
-        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/delete-crumb:latest"
+        ImageUri: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/delete-crumb:latest
       Timeout: 15
       MemorySize: 512
       VpcConfig:
@@ -258,7 +259,7 @@ Resources:
       FunctionName: !Ref CreateCrumbLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*
 
   GetLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -266,7 +267,7 @@ Resources:
       FunctionName: !Ref GetCrumbLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*
 
   GetAllLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -274,7 +275,7 @@ Resources:
       FunctionName: !Ref GetCrumbsLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*
 
   UpdateLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -282,7 +283,7 @@ Resources:
       FunctionName: !Ref UpdateCrumbLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*
 
   DeleteLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -290,7 +291,7 @@ Resources:
       FunctionName: !Ref DeleteCrumbLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*"
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*/*
 
   # ============================
   # API Gateway (proxy a Lambdas) + CORS consistente
@@ -313,7 +314,7 @@ Resources:
     Properties:
       RestApiId: !Ref RestAPI
       ParentId: !Ref CrumbsResource
-      PathPart: "{id}"
+      PathPart: '{id}'
 
   # POST /crumbs
   PostCrumbs:
@@ -327,7 +328,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateCrumbLambda.Arn}/invocations"
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateCrumbLambda.Arn}/invocations
 
   # GET /crumbs
   GetCrumbs:
@@ -341,7 +342,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetCrumbsLambda.Arn}/invocations"
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetCrumbsLambda.Arn}/invocations
 
   # GET /crumbs/{id}
   GetCrumb:
@@ -355,7 +356,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetCrumbLambda.Arn}/invocations"
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetCrumbLambda.Arn}/invocations
 
   # PUT /crumbs/{id}
   PutCrumb:
@@ -369,7 +370,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateCrumbLambda.Arn}/invocations"
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateCrumbLambda.Arn}/invocations
 
   # DELETE /crumbs/{id}
   DeleteCrumb:
@@ -383,7 +384,7 @@ Resources:
       Integration:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
-        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteCrumbLambda.Arn}/invocations"
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteCrumbLambda.Arn}/invocations
 
   # OPTIONS /crumbs (CORS preflight)
   OptionsCrumbs:
@@ -401,9 +402,9 @@ Resources:
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+              method.response.header.Access-Control-Allow-Headers: !Sub '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
+              method.response.header.Access-Control-Allow-Origin: !Sub '''${AllowedOrigin}'''
             ResponseTemplates:
               application/json: ''
       MethodResponses:
@@ -429,9 +430,9 @@ Resources:
         IntegrationResponses:
           - StatusCode: 200
             ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
+              method.response.header.Access-Control-Allow-Headers: !Sub '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+              method.response.header.Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
+              method.response.header.Access-Control-Allow-Origin: !Sub '''${AllowedOrigin}'''
             ResponseTemplates:
               application/json: ''
       MethodResponses:
@@ -448,9 +449,9 @@ Resources:
       RestApiId: !Ref RestAPI
       ResponseType: DEFAULT_4XX
       ResponseParameters:
-        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
-        gatewayresponse.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub '''${AllowedOrigin}'''
+        gatewayresponse.header.Access-Control-Allow-Headers: !Sub '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        gatewayresponse.header.Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
 
   Default5XXGatewayResponse:
     Type: AWS::ApiGateway::GatewayResponse
@@ -458,9 +459,9 @@ Resources:
       RestApiId: !Ref RestAPI
       ResponseType: DEFAULT_5XX
       ResponseParameters:
-        gatewayresponse.header.Access-Control-Allow-Origin: !Sub "'${AllowedOrigin}'"
-        gatewayresponse.header.Access-Control-Allow-Headers: !Sub "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-        gatewayresponse.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        gatewayresponse.header.Access-Control-Allow-Origin: !Sub '''${AllowedOrigin}'''
+        gatewayresponse.header.Access-Control-Allow-Headers: !Sub '''Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'''
+        gatewayresponse.header.Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
 
   # ============================
   # Deployment y API Key / Usage Plan
@@ -491,11 +492,11 @@ Resources:
   ApiKeySecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub "crumblr-api-key-${AWS::StackName}"
-      Description: "API Key for API Gateway (Crumblr)"
+      Name: !Sub crumblr-api-key-${AWS::StackName}
+      Description: API Key for API Gateway (Crumblr)
       GenerateSecretString:
         SecretStringTemplate: '{"apiKey":""}'
-        GenerateStringKey: "apiKey"
+        GenerateStringKey: apiKey
         PasswordLength: 32
         ExcludePunctuation: true
 
@@ -505,7 +506,7 @@ Resources:
     Properties:
       Name: crumblr-api-key-des
       Enabled: true
-      Value: !Sub "{{resolve:secretsmanager:${ApiKeySecret}:SecretString:apiKey}}"
+      Value: !Sub '{{resolve:secretsmanager:${ApiKeySecret}:SecretString:apiKey}}'
 
   UsagePlan:
     Type: AWS::ApiGateway::UsagePlan
@@ -528,7 +529,7 @@ Resources:
   FrontendALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Allow HTTP for Crumblr Frontend ALB"
+      GroupDescription: Allow HTTP for Crumblr Frontend ALB
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -545,7 +546,7 @@ Resources:
   FrontendECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Allow traffic from ALB to Frontend ECS"
+      GroupDescription: Allow traffic from ALB to Frontend ECS
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -611,24 +612,25 @@ Resources:
     Properties:
       Family: crumblr-frontend-task
       NetworkMode: awsvpc
-      RequiresCompatibilities: [FARGATE]
+      RequiresCompatibilities:
+        - FARGATE
       Cpu: 256
       Memory: 512
-      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
-      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ExecutionRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
+      TaskRoleArn: !Sub arn:aws:iam::${AWS::AccountId}:role/LabRole
       ContainerDefinitions:
         - Name: crumblr-frontend
-          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FrontendImageName}"
+          Image: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FrontendImageName}
           PortMappings:
             - ContainerPort: 80
           Environment:
             - Name: API_URL
-              Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+              Value: !Sub https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod
             - Name: ALLOWED_ORIGIN
               Value: !Ref AllowedOrigin
           Secrets:
             - Name: API_KEY
-              ValueFrom: !Sub "${ApiKeySecret}:apiKey::"
+              ValueFrom: !Sub '${ApiKeySecret}:apiKey::'
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -662,7 +664,7 @@ Resources:
 Outputs:
   APIEndpoint:
     Description: URL de la API Gateway (stage prod)
-    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+    Value: !Sub https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod
   APIKeyId:
     Description: API Key ID (para referencia)
     Value: !Ref APIKey
@@ -680,4 +682,4 @@ Outputs:
     Value: !Ref DBName
   FrontendURL:
     Description: Frontend Application URL
-    Value: !Sub "http://${FrontendALB.DNSName}"
+    Value: !Sub http://${FrontendALB.DNSName}
