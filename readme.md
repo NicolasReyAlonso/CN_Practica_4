@@ -237,3 +237,12 @@ Application Load Balancer LCU usage charges (monthly): 73.00 USD
 - Debugging de backend desacoplado.
 - Correcciones de ortografía y redacción.
 - Identificación de errores de concepto en los yaml
+
+## **ARREGLOS**
+Ahora se mantiene la arquitectura pero se ha trasladado cada implementación a su respectiva carpeta
+- ACOPLADO
+- DESACOPLADO
+
+Para arrancarlos es necesario ejecutar primero la creación de ecr que es un fichero llamado ECR y despues subir la imagen o imagenes del backend con el script suministrado: Buildandpush.sh o BUILDANDPUSHALL.sh. El backend esta en la carpeta crumblr-backend dentro de cada implementación
+
+El frontend se mantiene igual
